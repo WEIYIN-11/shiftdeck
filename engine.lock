@@ -12,7 +12,16 @@
   },
   "overlay_contract": {
     "clean_vendor": "vendor/ 是上游的乾淨快照，除 patches/ 明列的檔案外不得修改",
-    "patched_files": [],
-    "note": "patched_files 每新增一項，都是一筆未來的合併債務——加之前先確認覆蓋層真的做不到"
+    "patched_files": [
+      "skills/ppt-master/scripts/confirm_ui/static/app.js",
+      "skills/ppt-master/scripts/confirm_ui/static/catalogs.json",
+      "skills/ppt-master/scripts/confirm_ui/static/index.html",
+      "skills/ppt-master/scripts/svg_editor/static/app.js",
+      "skills/ppt-master/scripts/svg_editor/static/index.html"
+    ],
+    "note": "patched_files 每新增一項，都是一筆未來的合併債務——加之前先確認覆蓋層真的做不到",
+    "patches": {
+      "01-zh-tw-locale.patch": "階段 1：新增 zh-TW 語言（純加法，未動 en/ja/zh）。兩個 index.html 各只加一行語言選單項目——語言切換器是硬編碼 <li>，不改 HTML 就選不到繁體中文。若上游合併此 PR，整個 patch 即可刪除。"
+    }
   }
 }

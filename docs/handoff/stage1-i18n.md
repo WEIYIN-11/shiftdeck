@@ -57,4 +57,11 @@ python scripts/setup.py --check
 
 ## 完成後
 
-更新 `engine.lock` 的 `patched_files`，並在此記錄 PR 連結：`（待填）`
+更新 `engine.lock` 的 `patched_files`，並在此記錄 PR 連結：`（待送出）`
+
+- 譯文與 patch 已完成：`overlay/patches/01-zh-tw-locale.patch`，`engine.lock` 已登記 5 個檔案。
+- PR 描述草稿：[`../upstream-pr-draft.md`](../upstream-pr-draft.md)（英文，可直接貼進 PR）。
+- 回歸檢查：`python scripts/check_zhtw.py`（掃簡體殘留 + key 對齊 + 切換器可達性）。
+- **多改了兩個檔案**：`confirm_ui/static/index.html` 與 `svg_editor/static/index.html`。語言選單的
+  `<li>` 是寫死在 HTML 裡的，只改 `LANG_NAMES` 使用者仍然選不到繁體中文；各加一行。
+- PR 尚未送出（需人工建立 fork 並推送）。
