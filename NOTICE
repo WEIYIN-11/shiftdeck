@@ -1,0 +1,30 @@
+shiftdeck
+Copyright (c) 2026 coolkid
+
+This product includes software developed by third parties, listed below.
+
+--------------------------------------------------------------------------------
+ppt-master
+--------------------------------------------------------------------------------
+Source:  https://github.com/hugohe3/ppt-master
+Author:  Hugo He (heyug3@gmail.com)
+License: MIT
+Pinned:  v4.5.0 (b6ed57c0bc8a6f874e0deda54dcb77cc8c71352e)
+
+shiftdeck uses ppt-master's SVG-to-DrawingML compilation engine, its Confirm UI
+and live-preview surfaces, its icon libraries, and its visualization template
+library. The engine is NOT redistributed in this repository; `scripts/setup.py`
+retrieves the pinned version at install time. shiftdeck's own contributions are
+additive and live under `overlay/`.
+
+The MIT License text for ppt-master accompanies its own distribution and is
+reproduced in vendor/ppt-master/LICENSE after installation.
+
+--------------------------------------------------------------------------------
+Third-party assets reaching users through the engine
+--------------------------------------------------------------------------------
+The engine bundles icon sets (SVG Repo, Tabler Icons, Simple Icons, Phosphor
+Icons) under their respective licenses. See
+vendor/ppt-master/skills/ppt-master/templates/icons/THIRD_PARTY_NOTICES.md
+after installation for pinned versions, licenses, attribution requirements, and
+trademark boundaries.

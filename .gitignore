@@ -1,0 +1,27 @@
+# 引擎：安裝時取得，不進版控（14,000+ 檔案）
+vendor/
+
+# 使用者的簡報專案
+projects/
+!projects/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 環境變數（絕不進版控）
+.env
+.env.*
+!.env.example
+
+# 作業系統
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 編輯器
+.vscode/
+.idea/
+*.swp

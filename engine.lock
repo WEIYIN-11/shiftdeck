@@ -1,0 +1,17 @@
+{
+  "engine": {
+    "name": "ppt-master",
+    "repo": "https://github.com/hugohe3/ppt-master.git",
+    "mirror": "https://atomgit.com/hugohe3/ppt-master.git",
+    "tag": "v4.5.0",
+    "commit": "b6ed57c0bc8a6f874e0deda54dcb77cc8c71352e",
+    "pinned_at": "2026-08-11",
+    "license": "MIT",
+    "install_path": "vendor/ppt-master"
+  },
+  "overlay_contract": {
+    "clean_vendor": "vendor/ 是上游的乾淨快照，除 patches/ 明列的檔案外不得修改",
+    "patched_files": [],
+    "note": "patched_files 每新增一項，都是一筆未來的合併債務——加之前先確認覆蓋層真的做不到"
+  }
+}
