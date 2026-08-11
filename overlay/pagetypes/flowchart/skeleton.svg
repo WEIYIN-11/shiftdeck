@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content"
+     font-family="Microsoft JhengHei, Segoe UI, sans-serif">
+    <!--
+    shiftdeck pagetype: flowchart (流程圖)
+    節點數 3-7 彈性 · 骨架示範 4 節點單列
+    3-4 節點單列、5-7 節點雙列（上排 ceil(n/2)、下排 floor(n/2)），座標見同目錄 contract.md。
+    連接箭頭掛在「前一個節點」的群組裡，讓每一步連同去向一起進場。
+    佔位色為中性語意色，實際配色由專案 spec_lock.md 覆寫。
+    -->
+    <defs>
+        <marker id="flow-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <polygon points="0,0 6,3 0,6" fill="#4A5568"/>
+        </marker>
+    </defs>
+    <rect id="page-bg" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+
+    <g id="page-header" data-pptx-bounds="40 36 1200 104">
+        <text x="40" y="94" font-size="40" font-weight="700" fill="#1F2430">流程圖標題</text>
+        <text x="40" y="126" font-size="18" fill="#5A6270">用一句話說明這條流程的起點與終點</text>
+    </g>
+
+    <g id="step-1" data-pptx-bounds="40 186 312 348">
+        <rect x="40" y="190" width="264" height="340" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="2"/>
+        <circle cx="94" cy="248" r="26" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="94" y="257" font-size="24" font-weight="700" fill="#1F2430" text-anchor="middle">1</text>
+        <text x="68" y="326" font-size="24" font-weight="700" fill="#1F2430">步驟名稱</text>
+        <text x="68" y="366" font-size="18" fill="#5A6270"><tspan x="68" dy="0">說明這一步做什麼</tspan><tspan x="68" dy="28">誰參與、輸出什麼</tspan></text>
+        <line x1="68" y1="430" x2="276" y2="430" stroke="#E8EAED" stroke-width="1"/>
+        <text x="68" y="462" font-size="14" fill="#9AA1AC"><tspan x="68" dy="0">負責人／角色</tspan><tspan x="68" dy="24">時間：T+0</tspan></text>
+        <line x1="314" y1="360" x2="340" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#flow-arrow)"/>
+    </g>
+
+    <g id="step-2" data-pptx-bounds="352 186 312 348">
+        <rect x="352" y="190" width="264" height="340" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="2"/>
+        <circle cx="406" cy="248" r="26" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="406" y="257" font-size="24" font-weight="700" fill="#1F2430" text-anchor="middle">2</text>
+        <text x="380" y="326" font-size="24" font-weight="700" fill="#1F2430">步驟名稱</text>
+        <text x="380" y="366" font-size="18" fill="#5A6270"><tspan x="380" dy="0">說明這一步做什麼</tspan><tspan x="380" dy="28">誰參與、輸出什麼</tspan></text>
+        <line x1="380" y1="430" x2="588" y2="430" stroke="#E8EAED" stroke-width="1"/>
+        <text x="380" y="462" font-size="14" fill="#9AA1AC"><tspan x="380" dy="0">負責人／角色</tspan><tspan x="380" dy="24">時間：T+3</tspan></text>
+        <line x1="626" y1="360" x2="652" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#flow-arrow)"/>
+    </g>
+
+    <g id="step-3" data-pptx-bounds="664 186 312 348">
+        <rect x="664" y="190" width="264" height="340" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="2"/>
+        <circle cx="718" cy="248" r="26" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="718" y="257" font-size="24" font-weight="700" fill="#1F2430" text-anchor="middle">3</text>
+        <text x="692" y="326" font-size="24" font-weight="700" fill="#1F2430">步驟名稱</text>
+        <text x="692" y="366" font-size="18" fill="#5A6270"><tspan x="692" dy="0">說明這一步做什麼</tspan><tspan x="692" dy="28">誰參與、輸出什麼</tspan></text>
+        <line x1="692" y1="430" x2="900" y2="430" stroke="#E8EAED" stroke-width="1"/>
+        <text x="692" y="462" font-size="14" fill="#9AA1AC"><tspan x="692" dy="0">負責人／角色</tspan><tspan x="692" dy="24">時間：T+7</tspan></text>
+        <line x1="938" y1="360" x2="964" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#flow-arrow)"/>
+    </g>
+
+    <g id="step-4" data-pptx-bounds="976 186 264 348">
+        <rect x="976" y="190" width="264" height="340" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="2"/>
+        <circle cx="1030" cy="248" r="26" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="1030" y="257" font-size="24" font-weight="700" fill="#1F2430" text-anchor="middle">4</text>
+        <text x="1004" y="326" font-size="24" font-weight="700" fill="#1F2430">步驟名稱</text>
+        <text x="1004" y="366" font-size="18" fill="#5A6270"><tspan x="1004" dy="0">說明這一步做什麼</tspan><tspan x="1004" dy="28">誰參與、輸出什麼</tspan></text>
+        <line x1="1004" y1="430" x2="1212" y2="430" stroke="#E8EAED" stroke-width="1"/>
+        <text x="1004" y="462" font-size="14" fill="#9AA1AC"><tspan x="1004" dy="0">負責人／角色</tspan><tspan x="1004" dy="24">時間：T+14</tspan></text>
+    </g>
+
+    <g id="flow-outcome" data-pptx-bounds="40 562 1200 112">
+        <rect x="40" y="566" width="1200" height="104" rx="12" fill="#F4F5F7"/>
+        <rect x="40" y="566" width="6" height="104" rx="3" fill="#4A5568"/>
+        <text x="72" y="602" font-size="14" fill="#9AA1AC">流程產出</text>
+        <text x="72" y="638" font-size="18" fill="#1F2430">這條流程跑完會得到什麼、由誰確認、下一步交給誰</text>
+    </g>
+</svg>

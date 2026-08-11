@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content"
+     font-family="Microsoft JhengHei, Segoe UI, sans-serif">
+    <!--
+    shiftdeck pagetype: swot (SWOT 分析)
+    固定 4 象限 · 每象限 2-4 條（骨架示範 3 條）
+    左欄＝正面因素（較深底色），右欄＝負面因素；上排＝內部，下排＝外部。
+    佔位色為中性語意色，實際配色由專案 spec_lock.md 覆寫。
+    -->
+    <rect id="page-bg" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+
+    <g id="page-header" data-pptx-bounds="40 36 1200 104">
+        <text x="40" y="94" font-size="40" font-weight="700" fill="#1F2430">SWOT 分析</text>
+        <text x="40" y="126" font-size="18" fill="#5A6270">用一句話說明這次分析的對象與時間範圍</text>
+    </g>
+
+    <g id="quadrant-strengths" data-pptx-bounds="40 152 588 230">
+        <rect x="40" y="156" width="588" height="222" rx="16" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="68" y="184" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="68" y="228" font-size="24" font-weight="700" fill="#1F2430">優勢 Strengths</text>
+        <text x="68" y="252" font-size="14" fill="#9AA1AC">內部 · 正面</text>
+        <line x1="68" y1="268" x2="600" y2="268" stroke="#E8EAED" stroke-width="1"/>
+        <circle cx="74" cy="292" r="3" fill="#9AA1AC"/>
+        <text x="90" y="298" font-size="18" fill="#1F2430">我們手上已經有、而且別人短期拿不到的東西</text>
+        <circle cx="74" cy="324" r="3" fill="#9AA1AC"/>
+        <text x="90" y="330" font-size="18" fill="#1F2430">第二條優勢</text>
+        <circle cx="74" cy="356" r="3" fill="#9AA1AC"/>
+        <text x="90" y="362" font-size="18" fill="#1F2430">第三條優勢</text>
+    </g>
+
+    <g id="quadrant-weaknesses" data-pptx-bounds="652 152 588 230">
+        <rect x="652" y="156" width="588" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="680" y="184" width="44" height="6" rx="3" fill="#9AA1AC"/>
+        <text x="680" y="228" font-size="24" font-weight="700" fill="#1F2430">劣勢 Weaknesses</text>
+        <text x="680" y="252" font-size="14" fill="#9AA1AC">內部 · 負面</text>
+        <line x1="680" y1="268" x2="1212" y2="268" stroke="#E8EAED" stroke-width="1"/>
+        <circle cx="686" cy="292" r="3" fill="#9AA1AC"/>
+        <text x="702" y="298" font-size="18" fill="#1F2430">我們自己就能改、但現在還沒改的短板</text>
+        <circle cx="686" cy="324" r="3" fill="#9AA1AC"/>
+        <text x="702" y="330" font-size="18" fill="#1F2430">第二條劣勢</text>
+        <circle cx="686" cy="356" r="3" fill="#9AA1AC"/>
+        <text x="702" y="362" font-size="18" fill="#1F2430">第三條劣勢</text>
+    </g>
+
+    <g id="quadrant-opportunities" data-pptx-bounds="40 394 588 230">
+        <rect x="40" y="398" width="588" height="222" rx="16" fill="#F4F5F7" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="68" y="426" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="68" y="470" font-size="24" font-weight="700" fill="#1F2430">機會 Opportunities</text>
+        <text x="68" y="494" font-size="14" fill="#9AA1AC">外部 · 正面</text>
+        <line x1="68" y1="510" x2="600" y2="510" stroke="#E8EAED" stroke-width="1"/>
+        <circle cx="74" cy="534" r="3" fill="#9AA1AC"/>
+        <text x="90" y="540" font-size="18" fill="#1F2430">外部環境正在發生、我們可以順勢接住的變化</text>
+        <circle cx="74" cy="566" r="3" fill="#9AA1AC"/>
+        <text x="90" y="572" font-size="18" fill="#1F2430">第二條機會</text>
+        <circle cx="74" cy="598" r="3" fill="#9AA1AC"/>
+        <text x="90" y="604" font-size="18" fill="#1F2430">第三條機會</text>
+    </g>
+
+    <g id="quadrant-threats" data-pptx-bounds="652 394 588 230">
+        <rect x="652" y="398" width="588" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="680" y="426" width="44" height="6" rx="3" fill="#9AA1AC"/>
+        <text x="680" y="470" font-size="24" font-weight="700" fill="#1F2430">威脅 Threats</text>
+        <text x="680" y="494" font-size="14" fill="#9AA1AC">外部 · 負面</text>
+        <line x1="680" y1="510" x2="1212" y2="510" stroke="#E8EAED" stroke-width="1"/>
+        <circle cx="686" cy="534" r="3" fill="#9AA1AC"/>
+        <text x="702" y="540" font-size="18" fill="#1F2430">我們控制不了、但會實際傷到目標的外部風險</text>
+        <circle cx="686" cy="566" r="3" fill="#9AA1AC"/>
+        <text x="702" y="572" font-size="18" fill="#1F2430">第二條威脅</text>
+        <circle cx="686" cy="598" r="3" fill="#9AA1AC"/>
+        <text x="702" y="604" font-size="18" fill="#1F2430">第三條威脅</text>
+    </g>
+
+    <g id="swot-legend" data-pptx-bounds="40 632 1200 48">
+        <text x="40" y="664" font-size="14" fill="#9AA1AC">上排＝內部因素　下排＝外部因素　·　左欄＝正面　右欄＝負面</text>
+    </g>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content"
+     font-family="Microsoft JhengHei, Segoe UI, sans-serif">
+    <!--
+    shiftdeck pagetype: comparison (對比頁)
+    固定 2 欄 · 面向列 3-5 列（骨架示範 4 列）
+    佔位色為中性語意色，實際配色由專案 spec_lock.md 覆寫。
+    伸縮規則見同目錄 contract.md。
+    -->
+    <rect id="page-bg" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+
+    <g id="page-header" data-pptx-bounds="40 36 1200 104">
+        <text x="40" y="94" font-size="40" font-weight="700" fill="#1F2430">對比頁標題</text>
+        <text x="40" y="126" font-size="18" fill="#5A6270">用一句話說明這兩個選項在比什麼</text>
+    </g>
+
+    <g id="compare-head" data-pptx-bounds="40 152 1200 68">
+        <rect x="316" y="156" width="450" height="60" rx="12" fill="#F4F5F7"/>
+        <rect x="790" y="156" width="450" height="60" rx="12" fill="#F4F5F7"/>
+        <text x="40" y="194" font-size="14" fill="#9AA1AC">比較面向</text>
+        <text x="340" y="196" font-size="24" font-weight="700" fill="#1F2430">選項 A</text>
+        <text x="814" y="196" font-size="24" font-weight="700" fill="#1F2430">選項 B</text>
+    </g>
+
+    <g id="row-1" data-pptx-bounds="40 232 1200 82">
+        <rect x="316" y="232" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="790" y="232" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="40" y="280" font-size="18" fill="#5A6270">比較面向一</text>
+        <text x="340" y="268" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
+        <text x="814" y="268" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+    </g>
+
+    <g id="row-2" data-pptx-bounds="40 328 1200 82">
+        <rect x="316" y="328" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="790" y="328" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="40" y="376" font-size="18" fill="#5A6270">比較面向二</text>
+        <text x="340" y="364" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
+        <text x="814" y="364" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+    </g>
+
+    <g id="row-3" data-pptx-bounds="40 424 1200 82">
+        <rect x="316" y="424" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="790" y="424" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="40" y="472" font-size="18" fill="#5A6270">比較面向三</text>
+        <text x="340" y="460" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
+        <text x="814" y="460" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+    </g>
+
+    <g id="row-4" data-pptx-bounds="40 520 1200 82">
+        <rect x="316" y="520" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="790" y="520" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <text x="40" y="568" font-size="18" fill="#5A6270">比較面向四</text>
+        <text x="340" y="556" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
+        <text x="814" y="556" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+    </g>
+
+    <g id="verdict" data-pptx-bounds="40 614 1200 66">
+        <rect x="40" y="618" width="1200" height="58" rx="10" fill="#F4F5F7"/>
+        <rect x="40" y="618" width="6" height="58" rx="3" fill="#4A5568"/>
+        <text x="72" y="654" font-size="18" fill="#1F2430">結論：說明該選哪一個，以及做出選擇的關鍵理由</text>
+    </g>
+</svg>

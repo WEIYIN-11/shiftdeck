@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content"
+     font-family="Microsoft JhengHei, Segoe UI, sans-serif">
+    <!--
+    shiftdeck pagetype: kpi-dashboard (KPI 儀表板)
+    指標數 3-6 彈性 · 骨架示範 6 格（3 欄 × 2 列，最密的合法排法）
+    3/4/5 格的欄位座標見同目錄 contract.md，超過 6 格請拆頁。
+    佔位色為中性語意色，實際配色由專案 spec_lock.md 覆寫。
+    -->
+    <rect id="page-bg" data-pptx-role="background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+
+    <g id="page-header" data-pptx-bounds="40 36 1200 104">
+        <text x="40" y="94" font-size="40" font-weight="700" fill="#1F2430">關鍵指標儀表板</text>
+        <text x="40" y="126" font-size="18" fill="#5A6270">本期整體表現與上期比較</text>
+    </g>
+
+    <g id="kpi-1" data-pptx-bounds="40 152 384 230">
+        <rect x="40" y="156" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="68" y="184" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="68" y="218" font-size="14" fill="#5A6270">指標名稱一</text>
+        <text x="68" y="284" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="68" y="328" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="68" y="346" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="68" y="346" width="210" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-2" data-pptx-bounds="448 152 384 230">
+        <rect x="448" y="156" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="476" y="184" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="476" y="218" font-size="14" fill="#5A6270">指標名稱二</text>
+        <text x="476" y="284" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="476" y="328" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="476" y="346" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="476" y="346" width="252" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-3" data-pptx-bounds="856 152 384 230">
+        <rect x="856" y="156" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="884" y="184" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="884" y="218" font-size="14" fill="#5A6270">指標名稱三</text>
+        <text x="884" y="284" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="884" y="328" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="884" y="346" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="884" y="346" width="148" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-4" data-pptx-bounds="40 394 384 230">
+        <rect x="40" y="398" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="68" y="426" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="68" y="460" font-size="14" fill="#5A6270">指標名稱四</text>
+        <text x="68" y="526" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="68" y="570" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="68" y="588" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="68" y="588" width="186" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-5" data-pptx-bounds="448 394 384 230">
+        <rect x="448" y="398" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="476" y="426" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="476" y="460" font-size="14" fill="#5A6270">指標名稱五</text>
+        <text x="476" y="526" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="476" y="570" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="476" y="588" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="476" y="588" width="290" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-6" data-pptx-bounds="856 394 384 230">
+        <rect x="856" y="398" width="384" height="222" rx="16" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
+        <rect x="884" y="426" width="44" height="6" rx="3" fill="#4A5568"/>
+        <text x="884" y="460" font-size="14" fill="#5A6270">指標名稱六</text>
+        <text x="884" y="526" font-size="54" font-weight="700" fill="#1F2430">00.0%</text>
+        <text x="884" y="570" font-size="18" fill="#5A6270">較上期 +0.0</text>
+        <rect x="884" y="588" width="328" height="8" rx="4" fill="#E8EAED"/>
+        <rect x="884" y="588" width="120" height="8" rx="4" fill="#4A5568"/>
+    </g>
+
+    <g id="kpi-footnote" data-pptx-bounds="40 636 1200 44">
+        <text x="40" y="666" font-size="14" fill="#9AA1AC">資料期間與口徑：註明統計區間、計算方式與資料來源</text>
+    </g>
+</svg>
