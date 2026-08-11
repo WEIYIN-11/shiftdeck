@@ -1,7 +1,7 @@
 # 階段 1：繁體中文介面
 
 > 冷啟動可執行。先讀 [`../decisions.md`](../decisions.md) 了解專案脈絡。
-> **本階段同時是偵察**——讀完 717 個字串就摸熟了階段 3 要動刀的兩個檔案。
+> **本階段同時是偵察**——讀完 707 個字串就摸熟了階段 3 要動刀的兩個檔案。
 
 ## 目標
 
@@ -16,13 +16,15 @@ python scripts/setup.py --check
 
 ## 已查證的事實
 
+> 行號與字串數已對 **v4.5.0 (ec824aec)** 實測校正過，可直接引用。
+
 引擎路徑一律相對於 `vendor/ppt-master/skills/ppt-master/scripts/`。
 
 | 檔案 | 中文字串 | i18n 結構 |
 |---|---|---|
-| `confirm_ui/static/app.js` | 355 | `MESSAGES` 物件（L14）三區塊：`en`(L15)／`ja`(L198)／`zh`(L381)；`LANG` 解析 L566；`LANG_FALLBACK` L584；另有內嵌多語對照表（L587+，如 `{zh, en, ja}`） |
+| `confirm_ui/static/app.js` | 345 | `MESSAGES` 物件（L13）三區塊：`en`(L14)／`ja`(L192)／`zh`(L370)；`LANG` 解析 L550；`LANG_FALLBACK` L568（消費點 L598、L638）；另有內嵌多語對照表 |
 | `confirm_ui/static/catalogs.json` | 223 | 欄位為 `label_zh` / `desc_zh` / `group_zh`（另有 `_en` / `_ja`） |
-| `svg_editor/static/app.js` | 139 | `MESSAGES`：`en`(L10)／`ja`(L85)／`zh`(L160)；`LANG_NAMES` L276 |
+| `svg_editor/static/app.js` | 139 | `MESSAGES`：`en`(L10)／`ja`(L85)／`zh`(L160)；`LANG` 解析 L237；`LANG_NAMES` L276（消費點 L281） |
 
 - 語言偏好存於 `localStorage["ppt_lang"]`
 - Server 與 HTML **零硬編碼中文**，不需改動

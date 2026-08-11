@@ -4,10 +4,11 @@
     "repo": "https://github.com/hugohe3/ppt-master.git",
     "mirror": "https://atomgit.com/hugohe3/ppt-master.git",
     "tag": "v4.5.0",
-    "commit": "b6ed57c0bc8a6f874e0deda54dcb77cc8c71352e",
+    "commit": "ec824aecd551a0bc2990b617a131d907a5d808ea",
     "pinned_at": "2026-08-11",
     "license": "MIT",
-    "install_path": "vendor/ppt-master"
+    "install_path": "vendor/ppt-master",
+    "note": "v4.5.0 tag 指向的 commit；main 分支較新的 b6ed57c0 不在鎖定範圍"
   },
   "overlay_contract": {
     "clean_vendor": "vendor/ 是上游的乾淨快照，除 patches/ 明列的檔案外不得修改",
