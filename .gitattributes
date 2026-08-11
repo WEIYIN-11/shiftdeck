@@ -1,0 +1,8 @@
+# 統一以 LF 存進版控，checkout 時交給各平台自行處理
+* text=auto eol=lf
+
+# 二進位檔不做換行符轉換
+*.png binary
+*.jpg binary
+*.pptx binary
+*.zip binary
