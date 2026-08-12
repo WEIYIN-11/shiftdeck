@@ -1,5 +1,10 @@
 # shiftdeck 驗收清單
 
+> **2026-08-12 更新**：A1 發現的「第一頁文字跑出格」已修復（對比頁儲存格改純 CJK 單行，
+> LibreOffice 重新渲染確認乾淨；新檔 `verify\pagetypes_四個頁型_v2.pptx`）。
+> 此 bug 催生了新的標準閘門：`python scripts/visual_check.py <匯出檔>` 會用 LibreOffice
+> 真實渲染逐頁 PNG——checker 抓幾何，visual_check 抓真實字型渲染，兩道都過才算過。
+
 > 給 coolkid 的人工驗收指南。**只驗 agent 驗不了的東西**——程式碼層、XML 層、API 層我已經自動驗過並記在 `PROGRESS.md`，這裡全部是「非人眼／非 PowerPoint 不可」的項目。
 > 預估：核心 15 分鐘，完整 40 分鐘。
 

@@ -1,6 +1,6 @@
 # shiftdeck 進度
 
-> 最後更新：2026-08-12 08:50
+> 最後更新：2026-08-12 09:05
 > 本檔是 session 之間的交接點。開新 session 時先讀這份，再讀對應的 `handoff/`。
 
 ## 環境
@@ -17,7 +17,7 @@
 |---|---|---|
 | 1 繁中化 | ✅ 完成並驗收 | `8cedaca` |
 | 2 頁型庫 | ✅ 完成並驗收 | `07c15f6` |
-| 3 動畫選擇器 | ✅ 完成，待驗收 | 未提交 |
+| 3 動畫選擇器 | ✅ 完成並提交 | `d4450d8` |
 | 4 單頁重生成 | ⏸ 可開工（階段 3 已釋出 `svg_editor/app.js`） | — |
 
 **依賴**：1 → 3 → 4 為純序列（都動 `svg_editor/static/app.js`）。階段 2 已與 1 並行完成。
@@ -57,6 +57,23 @@
 - **svg_editor API**：未知效果／不存在的 group／`order=0` 都被引擎驗證器擋下並回 400
 - **單元素即時預覽**：瀏覽器實測 translate／clip-path／scale 三族都真的在動，播完自動還原無殘留 inline style
 - `check_zhtw.py` 18 項全過（新增 28 個 UI 字串 × 4 語言）
+
+
+### 使用者驗收回饋與處置（2026-08-12）
+
+| 回饋 | 處置 |
+|---|---|
+| 第一頁文字跑出格（LibreOffice 開啟） | ✅ **已修**。根因：儲存格「CJK＋拉丁」混排字寬被低估 7-10%，LibreOffice 度量更寬且強制重斷行。修法：佔位文字改純 CJK 單行、contract 上限下修 15%。LibreOffice 重渲染確認乾淨 |
+| 使用者環境**只有 LibreOffice、沒有 PowerPoint** | 動畫觀感驗收改以 LibreOffice 為準；D1/D2 的 PowerPoint 項目降級為「有機會再驗」 |
+| 動畫套組「前兩種區別不大、第三種等於沒有」 | ⏳ **待使用者決定**：已提「五個場景型套組」重設計方向（沉穩／逐項聚焦／活潑／數據揭示／戲劇登場，移除 minimal），等使用者拍板後重做 presets.json |
+| B（繁中）、C（頁型設計取捨） | ✅ 使用者確認 OK |
+
+### 新標準閘門：LibreOffice 視覺驗證
+
+`python scripts/visual_check.py <匯出檔> [-o 目錄]` —— .pptx → LibreOffice 轉 PDF → PyMuPDF 逐頁 PNG。
+**每個匯出物都要過兩道**：`svg_quality_checker`（幾何估算）＋ `visual_check`（真實字型渲染）。
+這是從使用者實際回饋反推出的功能：checker 對跑版頁報 0 errors，人眼一看就發現撐框。
+原 v2 的「vision 視覺自檢」提前實現了一半（渲染管線就緒，AI 自動看圖迴路留給階段 4 之後）。
 
 ## 待人工驗收（agent 看不到 UI，必須人眼確認）
 

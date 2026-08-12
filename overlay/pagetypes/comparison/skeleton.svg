@@ -25,32 +25,32 @@
         <rect x="316" y="232" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <rect x="790" y="232" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <text x="40" y="280" font-size="18" fill="#5A6270">比較面向一</text>
-        <text x="340" y="268" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
-        <text x="814" y="268" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+        <text x="340" y="279" font-size="18" fill="#1F2430">在此面向的具體表現</text>
+        <text x="814" y="279" font-size="18" fill="#1F2430">在此面向的具體表現</text>
     </g>
 
     <g id="row-2" data-pptx-bounds="40 328 1200 82">
         <rect x="316" y="328" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <rect x="790" y="328" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <text x="40" y="376" font-size="18" fill="#5A6270">比較面向二</text>
-        <text x="340" y="364" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
-        <text x="814" y="364" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+        <text x="340" y="375" font-size="18" fill="#1F2430">在此面向的具體表現</text>
+        <text x="814" y="375" font-size="18" fill="#1F2430">在此面向的具體表現</text>
     </g>
 
     <g id="row-3" data-pptx-bounds="40 424 1200 82">
         <rect x="316" y="424" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <rect x="790" y="424" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <text x="40" y="472" font-size="18" fill="#5A6270">比較面向三</text>
-        <text x="340" y="460" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
-        <text x="814" y="460" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+        <text x="340" y="471" font-size="18" fill="#1F2430">在此面向的具體表現</text>
+        <text x="814" y="471" font-size="18" fill="#1F2430">在此面向的具體表現</text>
     </g>
 
     <g id="row-4" data-pptx-bounds="40 520 1200 82">
         <rect x="316" y="520" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <rect x="790" y="520" width="450" height="82" rx="12" fill="#FFFFFF" stroke="#D0D4DA" stroke-width="1"/>
         <text x="40" y="568" font-size="18" fill="#5A6270">比較面向四</text>
-        <text x="340" y="556" font-size="18" fill="#1F2430"><tspan x="340" dy="0">選項 A 在這個面向</tspan><tspan x="340" dy="26">的具體表現</tspan></text>
-        <text x="814" y="556" font-size="18" fill="#1F2430"><tspan x="814" dy="0">選項 B 在這個面向</tspan><tspan x="814" dy="26">的具體表現</tspan></text>
+        <text x="340" y="567" font-size="18" fill="#1F2430">在此面向的具體表現</text>
+        <text x="814" y="567" font-size="18" fill="#1F2430">在此面向的具體表現</text>
     </g>
 
     <g id="verdict" data-pptx-bounds="40 614 1200 66">
