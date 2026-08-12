@@ -15,10 +15,13 @@
 
 | 階段 | 狀態 | commit |
 |---|---|---|
-| 1 繁中化 | ✅ 完成並驗收 | `8cedaca` |
-| 2 頁型庫 | ✅ 完成並驗收 | `07c15f6` |
-| 3 動畫選擇器 | ✅ 完成並提交 | `d4450d8` |
-| 4 單頁重生成 | ✅ P0／P1／P2 全部完成並驗收 | `2d9c497` |
+| 1 繁中化 | ✅ 完成並驗收 | `6bc3724` |
+| 2 頁型庫 | ✅ 完成並驗收 | `a56abd7` |
+| 3 動畫選擇器 | ✅ 完成並提交 | `85504af` |
+| 4 單頁重生成 | ✅ P0／P1／P2 全部完成並驗收 | `4b65418` |
+
+> commit SHA 於 2026-08-12 因改寫作者信箱而全部更換過一輪，本表已同步更新。
+> 舊 SHA（`8cedaca` / `07c15f6` / `d4450d8` / `2d9c497` / `cec095d`）已失效。
 
 **依賴**：1 → 3 → 4 為純序列（都動 `svg_editor/static/app.js`）。階段 2 已與 1 並行完成。
 
@@ -211,7 +214,7 @@ detailed review」。所以 issue 先講來意＋附 compare 連結，PR 內文�
 
 ## 已修正的坑
 
-`engine.lock` 原鎖 `b6ed57c0`（main HEAD），但 `v4.5.0` tag 實際指向 `ec824aec`，兩版 `confirm_ui/app.js` 有實質差異會使行號失準。已改鎖正式 tag（commit `cec095d`）。
+`engine.lock` 原鎖 `b6ed57c0`（main HEAD），但 `v4.5.0` tag 實際指向 `ec824aec`，兩版 `confirm_ui/app.js` 有實質差異會使行號失準。已改鎖正式 tag（commit `bcda74e`）。
 
 ## 階段 3 的檔案地圖
 
