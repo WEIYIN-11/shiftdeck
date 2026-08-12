@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -114,8 +115,41 @@ def load_catalog(force: bool = False) -> dict[str, Any]:
     return data
 
 
+USER_PRESETS_DIR = OVERLAY_DIR / 'user'
+
+
+def user_presets() -> list[dict[str, Any]]:
+    """Load ``overlay/animations/user/*.json`` — one preset object per file.
+
+    Deliberately not cached: these are hand-edited far more often than the
+    built-ins, and reading four small files costs nothing next to an export.
+    A malformed file is skipped rather than taking the whole catalog down; the
+    built-in presets must never become unreachable because of a user's typo.
+    """
+    if not USER_PRESETS_DIR.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for path in sorted(USER_PRESETS_DIR.glob('*.json')):
+        try:
+            with path.open(encoding='utf-8') as handle:
+                data = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or not data.get('id'):
+            continue
+        data['source'] = 'user'
+        data['path'] = str(path)
+        out.append(data)
+    return out
+
+
 def presets() -> list[dict[str, Any]]:
-    return list(load_catalog().get('presets', []))
+    """Return the built-in presets plus the user's own, built-ins winning ties."""
+    builtin = list(load_catalog().get('presets', []))
+    known = {str(item.get('id')) for item in builtin}
+    return builtin + [
+        item for item in user_presets() if str(item.get('id')) not in known
+    ]
 
 
 def get_preset(preset_id: object) -> Optional[dict[str, Any]]:
@@ -137,6 +171,8 @@ def ui_presets() -> list[dict[str, Any]]:
     options = []
     for preset in presets():
         option = {'id': preset.get('id')}
+        if preset.get('source') == 'user':
+            option['source'] = 'user'
         for field in ('label', 'desc'):
             for lang in ('en', 'zh', 'zh_tw', 'ja'):
                 key = f'{field}_{lang}'
@@ -249,6 +285,73 @@ def defaults_config(preset: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _rotate_variant(rule: dict[str, Any], variant: Any) -> list[dict[str, Any]]:
+    """Resolve one ``rotate`` entry into a concrete list of effect rows.
+
+    Two accepted shapes, because both are natural to write by hand:
+    a bare effect key (``"entrance_wipe"``) reuses the rule's own first row with
+    that effect substituted, and a full row array spells everything out.
+    Substituting an effect key drops the previous ``effect_options`` — options
+    are effect-specific, and carrying them across would fail engine validation.
+    """
+    if isinstance(variant, list):
+        return _clone(variant)
+    if isinstance(variant, str):
+        base = _clone(rule.get('effects') or [{}]) or [{}]
+        row = base[0]
+        row['effect'] = variant
+        seeds = load_catalog().get('seed_options', {}) or {}
+        if seeds.get(variant):
+            row['effect_options'] = _clone(seeds[variant])
+        else:
+            row.pop('effect_options', None)
+        return base
+    return _clone(rule.get('effects') or [])
+
+
+def _element_rows(
+    rule: dict[str, Any],
+    index: int,
+    peers: int,
+) -> list[dict[str, Any]]:
+    """Return one element's effect rows, applying optional rotation and ramping.
+
+    ``effects``     the plain form every built-in preset uses.
+    ``rotate``      alternatives that peers of the same class take turns through,
+                    so four cards on one page stop playing the identical move.
+    ``progressive`` per-field numeric ramps such as ``{"duration": [0.45, 0.3]}``:
+                    the first peer gets 0.45, the last 0.3, the rest evenly
+                    spaced. Applied after rotation.
+
+    Both extras are opt-in. A rule carrying neither returns ``effects`` verbatim,
+    which is why the three built-in presets keep byte-identical output.
+    """
+    variants = rule.get('rotate')
+    if isinstance(variants, list) and variants:
+        rows = _rotate_variant(rule, variants[index % len(variants)])
+    else:
+        rows = _clone(rule.get('effects') or [])
+    if not isinstance(rows, list) or not rows:
+        return []
+
+    ramp = rule.get('progressive')
+    if isinstance(ramp, dict) and ramp:
+        span = max(peers - 1, 1)
+        ratio = min(index, span) / span
+        for field, bounds in ramp.items():
+            if not isinstance(bounds, list) or len(bounds) != 2:
+                continue
+            try:
+                start = float(bounds[0])
+                end = float(bounds[1])
+            except (TypeError, ValueError):
+                continue
+            value = round(start + (end - start) * ratio, 3)
+            for row in rows:
+                row[field] = value
+    return rows
+
+
 def _slide_targets(project_path: Path) -> dict[str, list]:
     ensure_engine_importable()
     from svg_to_pptx.animation_config import scan_project_targets  # noqa: WPS433
@@ -283,25 +386,41 @@ def full_config(
         if role_cfg.get('animation'):
             slide_cfg['animation'] = _clone(role_cfg['animation'])
 
-        groups: dict[str, Any] = {}
-        order = 0
+        # Two passes: peers of the same element class must know how many of
+        # them share the page before rotation or ramping can be assigned.
+        animated: list[tuple[Any, str, dict[str, Any]]] = []
         for target in targets:
             if getattr(target, 'chrome', False):
                 continue
             if getattr(target, 'structurally_static', False):
                 continue
-            rule = element_rules.get(classify_group(target.group_id))
+            class_id = classify_group(target.group_id)
+            rule = element_rules.get(class_id)
             if rule is None:
+                class_id = DEFAULT_ELEMENT_CLASS
                 rule = element_rules.get(DEFAULT_ELEMENT_CLASS)
-            if not rule or not rule.get('effects'):
+            if not rule or not (rule.get('effects') or rule.get('rotate')):
+                continue
+            animated.append((target, class_id, rule))
+
+        peer_counts: dict[str, int] = {}
+        for _target, class_id, _rule in animated:
+            peer_counts[class_id] = peer_counts.get(class_id, 0) + 1
+
+        groups: dict[str, Any] = {}
+        seen: dict[str, int] = {}
+        order = 0
+        for target, class_id, rule in animated:
+            index = seen.get(class_id, 0)
+            seen[class_id] = index + 1
+            rows = _element_rows(rule, index, peer_counts[class_id])
+            if not rows:
                 continue
             order += 1
-            rows = []
-            for row in _clone(rule['effects']):
+            for row in rows:
                 # One order value per group: ties keep SVG group order and then
                 # array order, so a group's own rows stay in authored sequence.
                 row['order'] = order
-                rows.append(row)
             groups[target.group_id] = {'effects': rows}
         if groups:
             slide_cfg['groups'] = groups
@@ -316,6 +435,107 @@ def full_config(
         if merged_slides:
             config['slides'] = merged_slides
     return config
+
+
+USER_PRESET_ID_RE = re.compile(r'^[a-z0-9][a-z0-9_-]{0,39}$')
+
+
+def derive_preset(
+    project_path: Path,
+    preset_id: str,
+    *,
+    labels: Optional[dict[str, str]] = None,
+    base_preset_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """Turn a project's tuned ``animations.json`` back into a reusable preset.
+
+    The sidecar is concrete (this page, this ``<g id>``); a preset is abstract
+    (this *kind* of element). The bridge is the same ``element_classes`` /
+    ``page_roles`` matcher used to expand a preset in the first place: each
+    group id is classified, and the first group seen for a class supplies that
+    class's rows. Round-tripping an unmodified preset therefore reproduces it.
+
+    Raises ``ValueError`` for a bad id or a project with nothing to learn from.
+    """
+    if not USER_PRESET_ID_RE.match(str(preset_id or '')):
+        raise ValueError(
+            'preset id must be lowercase letters, digits, "-" or "_" '
+            '(max 40 characters)'
+        )
+    if preset_id in {str(item.get('id')) for item in load_catalog().get('presets', [])}:
+        raise ValueError(f'"{preset_id}" is a built-in preset id; choose another')
+
+    config = read_config(project_path)
+    if not config:
+        raise ValueError('this project has no animations.json to derive from')
+    slides = config.get('slides') or {}
+    if not slides:
+        raise ValueError(
+            'animations.json has no per-page settings yet; apply a preset or '
+            'tune some elements first'
+        )
+
+    base = get_preset(base_preset_id) or {}
+    elements: dict[str, Any] = {}
+    page_roles: dict[str, Any] = {}
+    for slide_stem, slide_cfg in slides.items():
+        role = classify_slide(slide_stem)
+        role_cfg = page_roles.setdefault(role, {})
+        for field in ('transition', 'animation'):
+            if slide_cfg.get(field) and field not in role_cfg:
+                role_cfg[field] = _clone(slide_cfg[field])
+        for group_id, block in (slide_cfg.get('groups') or {}).items():
+            class_id = classify_group(group_id)
+            if class_id in elements:
+                continue
+            rows = block.get('effects') if isinstance(block, dict) else None
+            if not isinstance(rows, list) or not rows:
+                continue
+            cleaned = []
+            for row in _clone(rows):
+                row.pop('order', None)
+                cleaned.append(row)
+            elements[class_id] = {'effects': cleaned}
+
+    page_roles = {role: cfg for role, cfg in page_roles.items() if cfg}
+    preset: dict[str, Any] = {
+        'id': preset_id,
+        'source': 'user',
+        'derived_from': base_preset_id or selected_preset_id(project_path),
+        'defaults': _clone(config.get('defaults') or base.get('defaults') or {}),
+    }
+    for lang in ('en', 'zh', 'zh_tw', 'ja'):
+        for field in ('label', 'desc'):
+            key = f'{field}_{lang}'
+            value = (labels or {}).get(key) or base.get(key)
+            if value:
+                preset[key] = value
+    preset.setdefault('label_en', preset_id)
+    if page_roles:
+        preset['page_roles'] = page_roles
+    preset['elements'] = elements
+    return preset
+
+
+def save_user_preset(preset: dict[str, Any]) -> Path:
+    """Write one derived preset to ``overlay/animations/user/<id>.json``.
+
+    Kept out of ``.gitignore`` on purpose: a preset is authored content. Whether
+    to version-control it is the user's call, the same way a VSCode theme is.
+    """
+    preset_id = str(preset.get('id') or '')
+    if not USER_PRESET_ID_RE.match(preset_id):
+        raise ValueError(f'invalid preset id: {preset_id}')
+    USER_PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+    path = USER_PRESETS_DIR / f'{preset_id}.json'
+    payload = {key: value for key, value in preset.items() if key != 'path'}
+    tmp = path.with_suffix('.json.tmp')
+    tmp.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + '\n',
+        encoding='utf-8',
+    )
+    os.replace(tmp, path)
+    return path
 
 
 def merge_defaults(existing: dict[str, Any], preset: dict[str, Any]) -> dict[str, Any]:

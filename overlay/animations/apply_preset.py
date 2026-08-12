@@ -64,6 +64,22 @@ def build_parser() -> argparse.ArgumentParser:
         dest='list_presets',
         help='Print the available presets and exit',
     )
+    parser.add_argument(
+        '--save-preset',
+        metavar='ID',
+        help=('Derive a reusable preset from this project\'s current '
+              'animations.json and save it to overlay/animations/user/<ID>.json'),
+    )
+    parser.add_argument(
+        '--label',
+        metavar='TEXT',
+        help='Display name for --save-preset (used for every language)',
+    )
+    parser.add_argument(
+        '--derived-from',
+        metavar='ID',
+        help='Built-in preset this one started from (inherits missing labels)',
+    )
     return parser
 
 
@@ -72,8 +88,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.list_presets:
         for preset in sda.presets():
+            origin = '  (自訂)' if preset.get('source') == 'user' else ''
             print(f"{preset['id']:<14} {preset.get('label_zh_tw', '')} — "
-                  f"{preset.get('label_en', '')}")
+                  f"{preset.get('label_en', '')}{origin}")
         print(f"{sda.NO_PRESET:<14} 不設定（維持引擎預設：fade 轉場、頁內 none）")
         return 0
 
@@ -84,6 +101,28 @@ def main(argv: list[str] | None = None) -> int:
     if not project_path.exists():
         print(f'Error: Project path does not exist: {project_path}', file=sys.stderr)
         return 1
+
+    if args.save_preset:
+        labels = {}
+        if args.label:
+            for lang in ('en', 'zh', 'zh_tw', 'ja'):
+                labels[f'label_{lang}'] = args.label
+        try:
+            preset = sda.derive_preset(
+                project_path,
+                args.save_preset,
+                labels=labels,
+                base_preset_id=args.derived_from,
+            )
+            path = sda.save_user_preset(preset)
+        except (ValueError, OSError, sda.EngineUnavailable) as exc:
+            print(f'Error: {exc}', file=sys.stderr)
+            return 1
+        print(f'user preset written: {path}')
+        print(f"id={preset['id']} element_classes="
+              f"{sorted((preset.get('elements') or {}).keys())} "
+              f"page_roles={sorted((preset.get('page_roles') or {}).keys())}")
+        return 0
 
     preset_id = args.preset
     if args.from_result and not preset_id:

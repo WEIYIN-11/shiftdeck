@@ -56,8 +56,9 @@ shiftdeck/
 ├── engine.lock      引擎版本鎖定（repo + commit）
 ├── overlay/         所有客製化——純加法，不改引擎
 │   ├── i18n/        繁體中文字典
-│   ├── pagetypes/   頁型庫（骨架 + 槽位契約）
-│   ├── animations/  動畫套組
+│   ├── pagetypes/   頁型庫（骨架 + 槽位契約 + 選單目錄）
+│   ├── animations/  動畫套組（含 user/ 放你自己衍生的套組）
+│   ├── regen/       單頁重生成（選取狀態通道 + 快路徑 CLI）
 │   └── patches/     引擎修補（唯一破例：單頁重生成）
 ├── scripts/         安裝與套用
 └── vendor/          引擎（gitignore，安裝時取得）

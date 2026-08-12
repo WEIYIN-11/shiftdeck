@@ -19,12 +19,15 @@
       "skills/ppt-master/scripts/svg_editor/static/app.js",
       "skills/ppt-master/scripts/svg_editor/static/index.html",
       "skills/ppt-master/scripts/confirm_ui/server.py",
-      "skills/ppt-master/scripts/svg_editor/server.py"
+      "skills/ppt-master/scripts/svg_editor/server.py",
+      "skills/ppt-master/scripts/finalize_svg.py",
+      "skills/ppt-master/scripts/svg_to_pptx.py"
     ],
     "note": "patched_files 每新增一項，都是一筆未來的合併債務——加之前先確認覆蓋層真的做不到",
     "patches": {
       "01-zh-tw-locale.patch": "階段 1：新增 zh-TW 語言（純加法，未動 en/ja/zh）。兩個 index.html 各只加一行語言選單項目——語言切換器是硬編碼 <li>，不改 HTML 就選不到繁體中文。若上游合併此 PR，整個 patch 即可刪除。",
-      "03-animation-selector.patch": "階段 3：動畫選擇器（純加法）。兩個 server.py 各加一段 overlay bootstrap 與新 API（confirm_ui: /api/animation-presets ＋ 確認後寫 animations.json；svg_editor: /api/animations GET/POST 與 /api/animations/preset）；兩個 app.js 加四語字串與 UI；svg_editor/index.html 加一個空容器 div。所有邏輯與資料都在 overlay/animations/，vendor 端只是接線——overlay 不存在時兩個伺服器自動退回上游行為（API 回 available:false／空清單）。基準為 01 patch 套用後的樹，兩者需依序套用。"
+      "03-animation-selector.patch": "階段 3：動畫選擇器（純加法）。兩個 server.py 各加一段 overlay bootstrap 與新 API（confirm_ui: /api/animation-presets ＋ 確認後寫 animations.json；svg_editor: /api/animations GET/POST 與 /api/animations/preset）；兩個 app.js 加四語字串與 UI；svg_editor/index.html 加一個空容器 div。所有邏輯與資料都在 overlay/animations/，vendor 端只是接線——overlay 不存在時兩個伺服器自動退回上游行為（API 回 available:false／空清單）。基準為 01 patch 套用後的樹，兩者需依序套用。",
+      "04-single-page-regen.patch": "階段 4：單頁重生成＋換頁型＋套組自動套用（純加法）。基準為 01→03 依序套用後的樹，三者需依序套用。動了 5 個檔案，其中 2 個是本階段新增的 patched file：(1) finalize_svg.py 加 --pages：覆蓋層做不到——finalize 的步驟順序與未來新增的步驟都住在引擎裡，overlay 若自己重排一次 svg_finalize.* 的呼叫順序，下次升級引擎就會靜默走樣；引擎自己的檔頭也明講這條管線與 svg_to_pptx 共用、刪步驟會連帶壞掉。實測：含圖 20 頁全量 3.007s、只跑 1 頁 0.768s，且兩者產出的 svg_final 逐 byte 相同。(2) svg_to_pptx.py（23 行的薄 wrapper）加匯出前自動展開動畫套組：覆蓋層做不到——匯出是使用者與工作流直接呼叫的入口，要讓「確認頁選了套組」在標準 Step 7 指令下自動生效，只能掛在這個入口；改成叫 overlay 的另一支腳本等於改掉既有流程。條件極窄（result.json 有 preset、animations.json 沒有 slides、未帶 --no-animations/--animation-config），任一不成立就完全不動作。另外 3 個檔案沿用階段 3 已有的 patched file：svg_editor/server.py 加選取狀態通道與重生成請求 API（/api/selection、/api/pagetypes、/api/regen、/api/regen/cancel、/api/animations/save-preset）；svg_editor/static/app.js 加四語字串、頁型挑選面板、套組另存 UI；svg_editor/static/index.html 加一個空容器 div。overlay/regen 或 overlay/animations 不存在時所有新 API 回 available:false／404，伺服器與匯出照常運作（已實測）。"
     }
   }
 }

@@ -1,0 +1,1015 @@
+diff --git a/skills/ppt-master/scripts/finalize_svg.py b/skills/ppt-master/scripts/finalize_svg.py
+index 7156a5b..e38c737 100644
+--- a/skills/ppt-master/scripts/finalize_svg.py
++++ b/skills/ppt-master/scripts/finalize_svg.py
+@@ -22,6 +22,9 @@ Usage:
+     # Execute only specific steps
+     python3 scripts/finalize_svg.py <project_directory> --only embed-icons align-images
+ 
++    # shiftdeck: reprocess one page only, reuse the published svg_final/ for the rest
++    python3 scripts/finalize_svg.py <project_directory> --pages 03_kpi_6.svg
++
+ Examples:
+     python3 scripts/finalize_svg.py projects/my_project
+     python3 scripts/finalize_svg.py examples/ppt169_demo --only embed-icons
+@@ -173,10 +176,47 @@ def _publish_candidate_directory(candidate_dir: Path, output_dir: Path) -> None:
+             shutil.rmtree(transaction_dir, ignore_errors=True)
+ 
+ 
++# --- shiftdeck overlay: incremental single-page finalize ---------------------
++# ``pages=None`` reproduces the upstream whole-directory behavior exactly; a
++# page set restricts every pass to those files so a one-page edit does not pay
++# for the whole deck's icon expansion / image embedding / text flattening.
++def _candidate_svgs(candidate_dir: Path, pages: set[str] | None = None):
++    """Yield the SVGs this run should process (all of them unless filtered)."""
++    files = candidate_dir.glob('*.svg')
++    if pages is None:
++        return files
++    return [svg_file for svg_file in files if svg_file.name in pages]
++
++
++def _reuse_published_pages(
++    candidate_dir: Path,
++    svg_final: Path,
++    pages: set[str],
++) -> set[str]:
++    """Carry already-published pages into the candidate and return what to process.
++
++    Every page outside ``pages`` that already exists in ``svg_final/`` is copied
++    over with ``copy2`` (metadata preserved, so an untouched page keeps its
++    mtime) and skipped. A page with no published copy is added back to the
++    process set, so an incremental run can never publish less than a full one.
++    """
++    process = set(pages)
++    for svg_file in candidate_dir.glob('*.svg'):
++        if svg_file.name in process:
++            continue
++        published = svg_final / svg_file.name
++        if published.is_file():
++            shutil.copy2(published, svg_file)
++        else:
++            process.add(svg_file.name)
++    return process
++
++
+ def _process_candidate_directory(
+     candidate_dir: Path,
+     *,
+     options: dict[str, bool],
++    pages: set[str] | None = None,
+     quiet: bool,
+     compress: bool,
+     max_dimension: int | None,
+@@ -187,7 +227,7 @@ def _process_candidate_directory(
+     """Run every selected finalization pass against one unpublished candidate."""
+     # Core normalization: downstream image/rect processors read XML geometry.
+     geometry_count = 0
+-    for svg_file in candidate_dir.glob('*.svg'):
++    for svg_file in _candidate_svgs(candidate_dir, pages):
+         try:
+             geometry_count += materialize_inline_geometry_in_file(svg_file)
+         except (OSError, ET.ParseError, GeometryStyleError) as exc:
+@@ -201,7 +241,7 @@ def _process_candidate_directory(
+         if not quiet:
+             safe_print("[1/3] Expanding icons + local use references...")
+         icons_count = 0
+-        for svg_file in candidate_dir.glob('*.svg'):
++        for svg_file in _candidate_svgs(candidate_dir, pages):
+             count = embed_icons_in_file(
+                 svg_file,
+                 icons_dir,
+@@ -210,7 +250,7 @@ def _process_candidate_directory(
+                 fallback_dir=icons_fallback_dir,
+             )
+             icons_count += count
+-        for svg_file in candidate_dir.glob('*.svg'):
++        for svg_file in _candidate_svgs(candidate_dir, pages):
+             try:
+                 geometry_count += materialize_inline_geometry_in_file(svg_file)
+             except (OSError, ET.ParseError, GeometryStyleError) as exc:
+@@ -220,7 +260,7 @@ def _process_candidate_directory(
+                 )
+                 return False
+         local_use_count = 0
+-        for svg_file in candidate_dir.glob('*.svg'):
++        for svg_file in _candidate_svgs(candidate_dir, pages):
+             try:
+                 local_use_count += expand_local_use_references_in_file(svg_file)
+             except (OSError, ET.ParseError, UseExpansionError) as exc:
+@@ -255,7 +295,7 @@ def _process_candidate_directory(
+         img_count = 0
+         img_errors = 0
+         office_vector_count = 0
+-        for svg_file in candidate_dir.glob('*.svg'):
++        for svg_file in _candidate_svgs(candidate_dir, pages):
+             office_vector_count += count_office_vector_refs_in_svg(svg_file)
+             count, errs = align_and_embed_images_in_svg(
+                 svg_file,
+@@ -297,7 +337,7 @@ def _process_candidate_directory(
+             safe_print("[3/3] Flattening text...")
+         flatten_count = 0
+         flatten_errors = 0
+-        for svg_file in candidate_dir.glob('*.svg'):
++        for svg_file in _candidate_svgs(candidate_dir, pages):
+             result = process_flatten_text(svg_file, verbose=False)
+             if result is FlattenTextResult.CHANGED:
+                 flatten_count += 1
+@@ -327,6 +367,7 @@ def finalize_project(
+     compress: bool = True,
+     max_dimension: int | None = 2560,
+     image_scale: float = 2.0,
++    pages: set[str] | None = None,
+ ) -> bool:
+     """
+     Finalize SVG files in the project
+@@ -339,6 +380,9 @@ def finalize_project(
+         compress: Compress images before embedding
+         max_dimension: Downscale images exceeding this dimension
+         image_scale: Target image pixels per SVG display pixel
++        pages: shiftdeck overlay — reprocess only these svg_output filenames and
++            reuse the published svg_final/ copy of everything else. ``None``
++            (the default) is the upstream whole-deck behavior.
+     """
+     svg_output = project_dir / 'svg_output'
+     svg_final = project_dir / 'svg_final'
+@@ -373,9 +417,19 @@ def finalize_project(
+     try:
+         try:
+             shutil.copytree(svg_output, candidate_dir, dirs_exist_ok=True)
++            process_pages = (
++                None if pages is None
++                else _reuse_published_pages(candidate_dir, svg_final, pages)
++            )
++            if process_pages is not None and not quiet:
++                safe_print(
++                    f"[PAGES] incremental: {len(process_pages)} of "
++                    f"{len(svg_files)} page(s) reprocessed"
++                )
+             candidate_ready = _process_candidate_directory(
+                 candidate_dir,
+                 options=options,
++                pages=process_pages,
+                 quiet=quiet,
+                 compress=compress,
+                 max_dimension=max_dimension,
+@@ -450,6 +504,13 @@ Aliases (still accepted):
+               'crop-images / fix-aspect / embed-images are accepted as '
+               'aliases for the merged align-images step.'),
+     )
++    # shiftdeck overlay: single-page regeneration path.
++    parser.add_argument(
++        '--pages', nargs='+', metavar='SVG_NAME', default=None,
++        help=('Reprocess only these svg_output/ filenames and reuse the '
++              'published svg_final/ copy of every other page (single-page '
++              'regeneration). Omit for the standard whole-deck run.'),
++    )
+     parser.add_argument('--dry-run', '-n', action='store_true',
+                         help='Preview only, do not execute')
+     parser.add_argument('--quiet', '-q', action='store_true',
+@@ -496,10 +557,28 @@ Aliases (still accepted):
+         safe_print("[ERROR] --image-scale must be >= 1")
+         sys.exit(1)
+ 
++    # shiftdeck overlay: validate the requested page names before any work, so a
++    # typo cannot silently publish a deck that skipped the page it meant to fix.
++    pages = None
++    if args.pages:
++        available = {
++            svg_file.name
++            for svg_file in (args.project_dir / 'svg_output').glob('*.svg')
++        }
++        pages = set(args.pages)
++        missing = sorted(pages - available)
++        if missing:
++            safe_print(
++                "[ERROR] --pages names not found in svg_output: "
++                + ", ".join(missing)
++            )
++            sys.exit(1)
++
+     success = finalize_project(args.project_dir, options, args.dry_run, args.quiet,
+                                compress=args.compress,
+                                max_dimension=args.max_dimension,
+-                               image_scale=args.image_scale)
++                               image_scale=args.image_scale,
++                               pages=pages)
+     sys.exit(0 if success else 1)
+ 
+ 
+diff --git a/skills/ppt-master/scripts/svg_editor/server.py b/skills/ppt-master/scripts/svg_editor/server.py
+index 00b09a6..bf161c5 100644
+--- a/skills/ppt-master/scripts/svg_editor/server.py
++++ b/skills/ppt-master/scripts/svg_editor/server.py
+@@ -143,6 +143,35 @@ def _shiftdeck_animations():
+     return _SHIFTDECK_ANIMATIONS
+ 
+ 
++# --- shiftdeck overlay: selection channel + single-page regeneration ----------
++# Same degradation contract as the animation overlay: no overlay directory =>
++# ``available: false`` and the browser hides the page-type picker entirely.
++_SHIFTDECK_REGEN: Optional[object] = None
++_SHIFTDECK_REGEN_TRIED = False
++
++
++def _shiftdeck_regen():
++    """Import the shiftdeck regeneration overlay once, or return ``None``."""
++    global _SHIFTDECK_REGEN, _SHIFTDECK_REGEN_TRIED
++    if _SHIFTDECK_REGEN_TRIED:
++        return _SHIFTDECK_REGEN
++    _SHIFTDECK_REGEN_TRIED = True
++    for parent in _ROOT_SCRIPTS_DIR.parents:
++        overlay = parent / 'overlay' / 'regen'
++        if not (overlay / 'shiftdeck_regen.py').is_file():
++            continue
++        if str(overlay) not in sys.path:
++            sys.path.insert(0, str(overlay))
++        try:
++            import shiftdeck_regen  # noqa: PLC0415
++        except ImportError as exc:
++            logger.warning('shiftdeck regen overlay not importable: %s', exc)
++            break
++        _SHIFTDECK_REGEN = shiftdeck_regen
++        break
++    return _SHIFTDECK_REGEN
++
++
+ def _server_url(port: int, path: str = '') -> str:
+     """Return the loopback URL shown to users and used by readiness probes."""
+     suffix = path if path.startswith('/') or not path else f'/{path}'
+@@ -1053,6 +1082,176 @@ def create_app(
+             'config': overlay.read_config(project_path),
+         })
+ 
++    @app.route('/api/animations/save-preset', methods=['POST'])
++    def save_animation_preset():
++        """Derive a reusable preset from this project's tuned animations.json.
++
++        Turns the five built-ins into five starting points: tune a deck in the
++        preview, save it under your own id, and it appears alongside them.
++        """
++        overlay = _shiftdeck_animations()
++        if overlay is None:
++            return jsonify({'error': 'animation overlay unavailable'}), 404
++        payload = request.get_json(silent=True)
++        if not isinstance(payload, dict):
++            return jsonify({'error': 'invalid payload'}), 400
++        preset_id = str(payload.get('id') or '').strip()
++        label = str(payload.get('label') or '').strip()
++        labels = {}
++        if label:
++            for lang in ('en', 'zh', 'zh_tw', 'ja'):
++                labels[f'label_{lang}'] = label
++        try:
++            preset = overlay.derive_preset(
++                project_path,
++                preset_id,
++                labels=labels,
++                base_preset_id=payload.get('derived_from'),
++            )
++            written = overlay.save_user_preset(preset)
++        except ValueError as exc:
++            return jsonify({'error': str(exc)}), 400
++        except (OSError, RuntimeError, json.JSONDecodeError) as exc:
++            return jsonify({'error': str(exc)}), 500
++        logger.info('user animation preset saved: %s', written)
++        return jsonify({
++            'status': 'ok',
++            'path': str(written),
++            'presets': overlay.ui_presets(),
++        })
++
++    # --- shiftdeck overlay: selection channel + single-page regeneration -----
++    @app.route('/api/pagetypes')
++    def get_pagetypes():
++        """Serve the page-type picker: ids, four-language labels, thumbnails.
++
++        The thumbnail is the page type's own ``skeleton.svg`` as a data URI, so
++        the picker shows the real layout with zero extra build steps.
++        """
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'available': False})
++        try:
++            payload = {
++                'available': True,
++                'page_types': overlay.ui_page_types(),
++                'keep': overlay.KEEP_PAGE_TYPE,
++            }
++        except (OSError, ValueError, json.JSONDecodeError) as exc:
++            logger.warning('page type catalog unavailable: %s', exc)
++            return jsonify({'available': False, 'error': str(exc)}), 500
++        resp = jsonify(payload)
++        resp.headers['Cache-Control'] = 'no-store'
++        return resp
++
++    @app.route('/api/selection')
++    def get_selection():
++        """Return the selection state the preview last recorded."""
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'available': False})
++        return jsonify({
++            'available': True,
++            'current': overlay.read_current(project_path),
++        })
++
++    @app.route('/api/selection', methods=['POST'])
++    def post_selection():
++        """Record page/element selection so a later AI turn can resolve "this".
++
++        Borrowed from open-slide's dev-server design (the idea only — none of
++        its code): the editor owns "what is selected right now" and publishes it
++        to a file, instead of the user having to retype a filename in chat.
++        """
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'error': 'regen overlay unavailable'}), 404
++        payload = request.get_json(silent=True)
++        if not isinstance(payload, dict):
++            return jsonify({'error': 'invalid payload'}), 400
++        slide = payload.get('slide')
++        if slide is not None:
++            if _safe_svg_path(str(slide)) is None:
++                return jsonify({'error': 'invalid slide name'}), 400
++        elements = payload.get('elements')
++        selection = {
++            'slide': slide,
++            'index': payload.get('index'),
++            'total': payload.get('total'),
++            'element': payload.get('element'),
++            'elements': elements if isinstance(elements, list) else [],
++        }
++        # Skip redundant disk writes: navigation fires this on every click.
++        signature = json.dumps(selection, ensure_ascii=False, sort_keys=True)
++        if app.config.get('SHIFTDECK_SELECTION_SIG') == signature:
++            return jsonify({'status': 'unchanged'})
++        try:
++            written = overlay.write_current(project_path, selection)
++        except OSError as exc:
++            return jsonify({'error': str(exc)}), 500
++        app.config['SHIFTDECK_SELECTION_SIG'] = signature
++        return jsonify({'status': 'ok', 'current': written})
++
++    @app.route('/api/regen')
++    def get_regen():
++        """Return the pending regeneration request, if any."""
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'available': False})
++        resp = jsonify({
++            'available': True,
++            'request': overlay.read_request(project_path),
++            'receipt': overlay.read_receipt(project_path),
++        })
++        resp.headers['Cache-Control'] = 'no-store'
++        return resp
++
++    @app.route('/api/regen', methods=['POST'])
++    def post_regen():
++        """Queue "redraw this page as this page type" for the next AI turn.
++
++        The server only records the request — it never redraws. Authoring stays
++        with the AI; this endpoint is the handoff point that makes "this page"
++        unambiguous.
++        """
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'error': 'regen overlay unavailable'}), 404
++        payload = request.get_json(silent=True)
++        if not isinstance(payload, dict):
++            return jsonify({'error': 'invalid payload'}), 400
++        slide = str(payload.get('slide') or '')
++        svg_file = _safe_svg_path(slide) if slide else None
++        if svg_file is None or not svg_file.exists():
++            return jsonify({'error': 'invalid slide name'}), 400
++        page_type = str(payload.get('page_type') or overlay.KEEP_PAGE_TYPE)
++        try:
++            known = set(overlay.page_type_ids()) | {overlay.KEEP_PAGE_TYPE}
++        except (OSError, ValueError, json.JSONDecodeError) as exc:
++            return jsonify({'error': str(exc)}), 500
++        if page_type not in known:
++            return jsonify({'error': f'unknown page type: {page_type}'}), 400
++        try:
++            written = overlay.write_request(
++                project_path,
++                slide=slide,
++                page_type=page_type,
++                note=payload.get('note') or '',
++            )
++        except OSError as exc:
++            return jsonify({'error': str(exc)}), 500
++        logger.info('regeneration requested: %s -> %s', slide, page_type)
++        return jsonify({'status': 'ok', 'request': written})
++
++    @app.route('/api/regen/cancel', methods=['POST'])
++    def cancel_regen():
++        """Withdraw the pending regeneration request."""
++        overlay = _shiftdeck_regen()
++        if overlay is None:
++            return jsonify({'error': 'regen overlay unavailable'}), 404
++        closed = overlay.close_request(project_path, overlay.STATUS_CANCELLED)
++        return jsonify({'status': 'ok', 'request': closed})
++
+     @app.route('/api/save-all', methods=['POST'])
+     def save_all():
+         annotations = app.config['ANNOTATIONS']
+diff --git a/skills/ppt-master/scripts/svg_editor/static/app.js b/skills/ppt-master/scripts/svg_editor/static/app.js
+index 23e97aa..a29c9cd 100644
+--- a/skills/ppt-master/scripts/svg_editor/static/app.js
++++ b/skills/ppt-master/scripts/svg_editor/static/app.js
+@@ -119,7 +119,28 @@
+             anim_curated_note: "{curated} of {total} PowerPoint {category} effects — the ones that read well in a deck.",
+             anim_preview_note: "Browser preview approximates the PowerPoint effect; the exported .pptx carries the native one.",
+             anim_unavailable: "Animation editing is unavailable in this installation.",
+-            anim_no_groups: "This page has no animatable top-level groups."
++            anim_no_groups: "This page has no animatable top-level groups.",
++            panel_pagetype: "Page type",
++            pt_change: "Change layout",
++            pt_close: "Close",
++            pt_keep: "Keep the current layout",
++            pt_keep_desc: "Redraw this page's content without changing its structure.",
++            pt_note_placeholder: "What must change on this page? (optional)",
++            pt_request: "Ask the AI to redraw this page",
++            pt_requested: "Request saved. Switch back to the chat and say \"redraw this page\" — the AI reads live_preview/regen_request.json.",
++            pt_request_failed: "Request failed: ",
++            pt_pending: "Waiting for redraw: {slide} → {type}",
++            pt_cancel: "Cancel request",
++            pt_unavailable: "Page-type switching is unavailable in this installation.",
++            pt_pick_first: "Pick a page type first.",
++            pt_last_run: "Last regeneration: {seconds}s ({mode})",
++            pt_range: "{min}-{max} {unit}",
++            anim_save_preset: "Save as my preset",
++            anim_preset_id_ph: "my-preset",
++            anim_preset_label_ph: "Display name (optional)",
++            anim_preset_saved: "Preset saved to overlay/animations/user/",
++            anim_preset_save_failed: "Could not save the preset: ",
++            anim_preset_user_tag: " (mine)"
+         },
+         ja: {
+             page_title: "PPT Master - ライブプレビュー",
+@@ -233,7 +254,28 @@
+             anim_curated_note: "PowerPoint の{category}効果 {total} 種類のうち、資料で使いやすい {curated} 種類。",
+             anim_preview_note: "ブラウザのプレビューは PowerPoint 効果の近似です。書き出した .pptx はネイティブ効果を持ちます。",
+             anim_unavailable: "この環境ではアニメーション編集を利用できません。",
+-            anim_no_groups: "このページには対象となる最上位グループがありません。"
++            anim_no_groups: "このページには対象となる最上位グループがありません。",
++            panel_pagetype: "ページ型",
++            pt_change: "レイアウトを変更",
++            pt_close: "閉じる",
++            pt_keep: "現在のレイアウトのまま",
++            pt_keep_desc: "構成は変えず、このページの内容だけ描き直します。",
++            pt_note_placeholder: "このページで直したい点（任意）",
++            pt_request: "このページの描き直しを依頼",
++            pt_requested: "依頼を保存しました。チャットに戻って「このページを描き直して」と伝えてください。AI は live_preview/regen_request.json を読みます。",
++            pt_request_failed: "依頼に失敗しました: ",
++            pt_pending: "描き直し待ち: {slide} → {type}",
++            pt_cancel: "依頼を取り消す",
++            pt_unavailable: "この環境ではページ型の変更を利用できません。",
++            pt_pick_first: "先にページ型を選んでください。",
++            pt_last_run: "前回の再生成: {seconds}秒（{mode}）",
++            pt_range: "{min}〜{max} {unit}",
++            anim_save_preset: "自分のプリセットとして保存",
++            anim_preset_id_ph: "my-preset",
++            anim_preset_label_ph: "表示名（任意）",
++            anim_preset_saved: "overlay/animations/user/ に保存しました",
++            anim_preset_save_failed: "プリセットを保存できませんでした: ",
++            anim_preset_user_tag: "（自作）"
+         },
+         zh: {
+             page_title: "PPT Master - 实时预览",
+@@ -347,7 +389,28 @@
+             anim_curated_note: "PowerPoint {total} 个{category}效果中，挑出简报里读得顺的 {curated} 个。",
+             anim_preview_note: "浏览器预览是 PowerPoint 效果的近似；导出的 .pptx 带的是原生效果。",
+             anim_unavailable: "此安装环境无法编辑动画。",
+-            anim_no_groups: "这一页没有可加动画的最上层群组。"
++            anim_no_groups: "这一页没有可加动画的最上层群组。",
++            panel_pagetype: "页型",
++            pt_change: "换页型",
++            pt_close: "收起",
++            pt_keep: "保持现有版面",
++            pt_keep_desc: "不改结构，只重画这一页的内容。",
++            pt_note_placeholder: "这一页要改什么？（选填）",
++            pt_request: "请 AI 重画这一页",
++            pt_requested: "请求已保存。回到对话说「重画这一页」，AI 会读 live_preview/regen_request.json。",
++            pt_request_failed: "送出失败：",
++            pt_pending: "等待重画：{slide} → {type}",
++            pt_cancel: "取消请求",
++            pt_unavailable: "这个安装环境无法切换页型。",
++            pt_pick_first: "请先选一个页型。",
++            pt_last_run: "上次重生成：{seconds} 秒（{mode}）",
++            pt_range: "{min}–{max} 个{unit}",
++            anim_save_preset: "存成我的套组",
++            anim_preset_id_ph: "my-preset",
++            anim_preset_label_ph: "显示名称（选填）",
++            anim_preset_saved: "已存到 overlay/animations/user/",
++            anim_preset_save_failed: "套组存档失败：",
++            anim_preset_user_tag: "（自订）"
+         },
+         "zh-TW": {
+             page_title: "PPT Master - 即時預覽",
+@@ -461,7 +524,28 @@
+             anim_curated_note: "PowerPoint {total} 個{category}效果中，挑出簡報裡讀得順的 {curated} 個。",
+             anim_preview_note: "瀏覽器預覽是 PowerPoint 效果的近似；匯出的 .pptx 帶的是原生效果。",
+             anim_unavailable: "此安裝環境無法編輯動畫。",
+-            anim_no_groups: "這一頁沒有可加動畫的最上層群組。"
++            anim_no_groups: "這一頁沒有可加動畫的最上層群組。",
++            panel_pagetype: "頁型",
++            pt_change: "換頁型",
++            pt_close: "收起",
++            pt_keep: "維持現有版面",
++            pt_keep_desc: "不改結構，只重畫這一頁的內容。",
++            pt_note_placeholder: "這一頁要改什麼？（選填）",
++            pt_request: "請 AI 重畫這一頁",
++            pt_requested: "請求已存好。回到對話說「重畫這一頁」，AI 會讀 live_preview/regen_request.json。",
++            pt_request_failed: "送出失敗：",
++            pt_pending: "等待重畫：{slide} → {type}",
++            pt_cancel: "取消請求",
++            pt_unavailable: "這個安裝環境無法切換頁型。",
++            pt_pick_first: "請先選一個頁型。",
++            pt_last_run: "上次重生成：{seconds} 秒（{mode}）",
++            pt_range: "{min}–{max} 個{unit}",
++            anim_save_preset: "存成我的套組",
++            anim_preset_id_ph: "my-preset",
++            anim_preset_label_ph: "顯示名稱（選填）",
++            anim_preset_saved: "已存到 overlay/animations/user/",
++            anim_preset_save_failed: "套組存檔失敗：",
++            anim_preset_user_tag: "（自訂）"
+         }
+     };
+ 
+@@ -534,6 +618,7 @@
+         updatePendingStatus();
+         initAnnotationQuickActions();
+         animRenderPanel();
++        sdRenderPanel();
+         loadSlides();
+     }
+ 
+@@ -1068,6 +1153,7 @@
+     }
+ 
+     function updateSelectionPanel() {
++        sdSyncSelection();  // shiftdeck: publish "what is selected right now"
+         var propsEl = elementPropsEl;
+         var count = selectedElementIds.size;
+ 
+@@ -3305,7 +3391,12 @@
+         ".anim-order-item{display:flex;gap:4px;align-items:center;font-size:12px;padding:2px 0}",
+         ".anim-order-item .oid{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+         ".anim-order-item.current .oid{font-weight:700}",
+-        ".anim-anchor{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:600}"
++        ".anim-anchor{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:600}",
++        ".anim-preset-id,.anim-preset-label{font:inherit;font-size:12px;padding:2px 4px;",
++        "min-width:0;border-radius:5px;border:1px solid rgba(128,128,128,.4);",
++        "background:transparent;color:inherit}",
++        ".anim-preset-id{flex:0 1 88px}",
++        ".anim-preset-label{flex:1 1 96px}"
+     ].join("");
+ 
+     (function injectAnimCss() {
+@@ -3948,8 +4039,10 @@
+         none.value = "none";
+         select.appendChild(none);
+         ANIM.presets.forEach(function (preset) {
+-            var option = animEl("option", null,
+-                preset["label_" + (LANG === "zh-TW" ? "zh_tw" : LANG)] || preset.label_en || preset.id);
++            var name = preset["label_" + (LANG === "zh-TW" ? "zh_tw" : LANG)] ||
++                preset.label_en || preset.id;
++            if (preset.source === "user") name += t("anim_preset_user_tag");
++            var option = animEl("option", null, name);
+             option.value = preset.id;
+             select.appendChild(option);
+         });
+@@ -3971,6 +4064,41 @@
+             }).catch(function (err) { animSetStatus(String(err && err.message), true); });
+         }));
+         block.appendChild(line);
++
++        // Derive-and-save: the built-ins are starting points, not a closed set.
++        var save = animEl("div", "anim-line");
++        var idInput = document.createElement("input");
++        idInput.className = "anim-preset-id";
++        idInput.placeholder = t("anim_preset_id_ph");
++        var labelInput = document.createElement("input");
++        labelInput.className = "anim-preset-label";
++        labelInput.placeholder = t("anim_preset_label_ph");
++        save.appendChild(idInput);
++        save.appendChild(labelInput);
++        save.appendChild(animButton("", t("anim_save_preset"), function () {
++            fetch("/api/animations/save-preset", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify({
++                    id: idInput.value.trim(),
++                    label: labelInput.value.trim(),
++                    derived_from: select.value === "none" ? null : select.value
++                })
++            }).then(function (res) {
++                return res.json().then(function (data) { return { ok: res.ok, data: data }; });
++            }).then(function (result) {
++                if (!result.ok) {
++                    animSetStatus(t("anim_preset_save_failed") + (result.data.error || ""), true);
++                    return;
++                }
++                ANIM.presets = result.data.presets || ANIM.presets;
++                animRenderPanel();
++                animSetStatus(t("anim_preset_saved"));
++            }).catch(function (err) {
++                animSetStatus(t("anim_preset_save_failed") + (err && err.message), true);
++            });
++        }));
++        block.appendChild(save);
+         host.appendChild(block);
+     }
+ 
+@@ -4086,10 +4214,272 @@
+             .catch(function () { ANIM.available = false; return null; });
+     }
+ 
++    // ---- shiftdeck overlay: selection channel + page-type picker ----------
++    // The editor owns "what is selected right now" and publishes it to
++    // live_preview/current.json, so a later AI turn can resolve "this page"
++    // without the user retyping a filename. The picker itself never redraws —
++    // it records a request the AI picks up.
++    var SD_CSS = [
++        "#pagetype-panel{margin:10px 0;padding-top:8px;border-top:1px solid rgba(128,128,128,.25)}",
++        ".sd-head{display:flex;gap:6px;align-items:center;margin-bottom:6px}",
++        ".sd-current{flex:1;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;",
++        "overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
++        ".sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}",
++        ".sd-card{display:block;width:100%;padding:4px;cursor:pointer;text-align:left;",
++        "border:1px solid rgba(128,128,128,.35);border-radius:6px;background:transparent;",
++        "color:inherit;font:inherit}",
++        ".sd-card:hover{background:rgba(128,128,128,.12)}",
++        ".sd-card.picked{border-color:#3b82f6;box-shadow:0 0 0 1px #3b82f6 inset}",
++        ".sd-thumb{display:block;width:100%;height:auto;border-radius:3px;background:#fff;",
++        "border:1px solid rgba(128,128,128,.2)}",
++        ".sd-card-label{font-size:12px;font-weight:600;margin-top:3px}",
++        ".sd-card-desc{font-size:11px;opacity:.75;line-height:1.35}",
++        ".sd-card-range{font-size:11px;opacity:.6}",
++        ".sd-card.keep{grid-column:1 / -1}",
++        ".sd-note{width:100%;box-sizing:border-box;font:inherit;font-size:12px;padding:4px;",
++        "border-radius:5px;border:1px solid rgba(128,128,128,.4);background:transparent;",
++        "color:inherit;min-height:44px;resize:vertical;margin-bottom:6px}",
++        ".sd-pending{font-size:11px;margin-top:6px;padding:4px 6px;border-radius:5px;",
++        "border:1px solid rgba(234,179,8,.5);background:rgba(234,179,8,.1)}"
++    ].join("");
++
++    (function injectSdCss() {
++        var style = document.createElement("style");
++        style.textContent = SD_CSS;
++        document.head.appendChild(style);
++    })();
++
++    var SD = {
++        available: false,
++        pageTypes: [],
++        keep: "keep",
++        request: null,
++        receipt: null,
++        picked: null,
++        open: false,
++        note: "",
++        status: "",
++        statusErr: false,
++        slide: null
++    };
++    var sdPanelEl = document.getElementById("pagetype-panel");
++    var sdSyncTimer = null;
++
++    function sdLangSuffix() { return LANG === "zh-TW" ? "zh_tw" : LANG; }
++
++    function sdText(item, field) {
++        return item[field + "_" + sdLangSuffix()] || item[field + "_en"] || item.id || "";
++    }
++
++    // Debounced: navigation and rubber-band selection both fire this rapidly.
++    function sdSyncSelection() {
++        if (!SD.available) return;
++        // Re-render only when the page itself changed: this runs on every drag
++        // and rubber-band update, and a blind re-render would steal focus from
++        // the note textarea mid-typing.
++        if (SD.slide !== currentSlide) {
++            SD.slide = currentSlide;
++            SD.status = "";
++            SD.statusErr = false;
++            sdRenderPanel();
++        }
++        if (sdSyncTimer) window.clearTimeout(sdSyncTimer);
++        sdSyncTimer = window.setTimeout(function () {
++            sdSyncTimer = null;
++            var ids = [];
++            selectedElementIds.forEach(function (id) { ids.push(id); });
++            fetch("/api/selection", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify({
++                    slide: currentSlide,
++                    index: currentSlide ? currentSlideIndex() + 1 : null,
++                    total: slideNames.length,
++                    element: ids.length === 1 ? ids[0] : null,
++                    elements: ids
++                })
++            }).catch(function (err) {
++                // Best-effort sidecar: the explicit redraw request below is the
++                // path that must report failure, not every navigation click.
++                console.warn("shiftdeck: selection sync failed:", err);
++            });
++        }, 200);
++    }
++
++    function sdSetStatus(text, isError) {
++        SD.status = text || "";
++        SD.statusErr = !!isError;
++        sdRenderPanel();
++    }
++
++    function sdRenderCard(host, id, label, desc, range, thumb) {
++        var card = animEl("button", "sd-card" + (id === SD.keep ? " keep" : "") +
++            (SD.picked === id ? " picked" : ""));
++        card.type = "button";
++        if (thumb) {
++            var img = document.createElement("img");
++            img.className = "sd-thumb";
++            img.src = thumb;
++            img.alt = label;
++            card.appendChild(img);
++        }
++        card.appendChild(animEl("div", "sd-card-label", label));
++        if (desc) card.appendChild(animEl("div", "sd-card-desc", desc));
++        if (range) card.appendChild(animEl("div", "sd-card-range", range));
++        card.addEventListener("click", function () {
++            SD.picked = id;
++            sdRenderPanel();
++        });
++        host.appendChild(card);
++    }
++
++    function sdRangeLabel(item) {
++        var flex = item.flex;
++        if (!flex || flex.min === undefined || flex.max === undefined) return "";
++        if (flex.min === flex.max) return "";
++        return t("pt_range", {
++            min: flex.min,
++            max: flex.max,
++            unit: flex["unit_" + sdLangSuffix()] || flex.unit_en || ""
++        });
++    }
++
++    function sdSubmitRequest() {
++        if (!SD.picked) { sdSetStatus(t("pt_pick_first"), true); return; }
++        if (!currentSlide) return;
++        fetch("/api/regen", {
++            method: "POST",
++            headers: { "Content-Type": "application/json" },
++            body: JSON.stringify({
++                slide: currentSlide,
++                page_type: SD.picked,
++                note: SD.note
++            })
++        }).then(function (res) {
++            return res.json().then(function (data) { return { ok: res.ok, data: data }; });
++        }).then(function (result) {
++            if (!result.ok) {
++                sdSetStatus(t("pt_request_failed") + (result.data.error || ""), true);
++                return;
++            }
++            SD.request = result.data.request;
++            SD.open = false;
++            sdSetStatus(t("pt_requested"), false);
++        }).catch(function (err) {
++            sdSetStatus(t("pt_request_failed") + (err && err.message), true);
++        });
++    }
++
++    function sdCancelRequest() {
++        fetch("/api/regen/cancel", { method: "POST" })
++            .then(function (res) { return res.json(); })
++            .then(function () {
++                SD.request = null;
++                sdSetStatus("", false);
++            })
++            .catch(function (err) {
++                sdSetStatus(t("pt_request_failed") + (err && err.message), true);
++            });
++    }
++
++    function sdRenderPanel() {
++        if (!sdPanelEl) return;
++        if (!SD.available || !currentSlide) {
++            sdPanelEl.style.display = "none";
++            return;
++        }
++        sdPanelEl.style.display = "block";
++        sdPanelEl.innerHTML = "";
++        sdPanelEl.appendChild(animEl("div", "section-label", t("panel_pagetype")));
++
++        var head = animEl("div", "sd-head");
++        head.appendChild(animEl("span", "sd-current", currentSlide));
++        head.appendChild(animButton("", SD.open ? t("pt_close") : t("pt_change"), function () {
++            SD.open = !SD.open;
++            sdRenderPanel();
++        }));
++        sdPanelEl.appendChild(head);
++
++        if (SD.open) {
++            var grid = animEl("div", "sd-grid");
++            sdRenderCard(grid, SD.keep, t("pt_keep"), t("pt_keep_desc"), "", null);
++            SD.pageTypes.forEach(function (item) {
++                sdRenderCard(
++                    grid,
++                    item.id,
++                    sdText(item, "label"),
++                    sdText(item, "desc"),
++                    sdRangeLabel(item),
++                    item.thumbnail
++                );
++            });
++            sdPanelEl.appendChild(grid);
++
++            var note = document.createElement("textarea");
++            note.className = "sd-note";
++            note.placeholder = t("pt_note_placeholder");
++            note.value = SD.note;
++            note.addEventListener("input", function () { SD.note = note.value; });
++            sdPanelEl.appendChild(note);
++
++            var actions = animEl("div", "anim-actions");
++            actions.appendChild(animButton("primary", t("pt_request"), sdSubmitRequest));
++            sdPanelEl.appendChild(actions);
++        }
++
++        if (SD.request && SD.request.status === "pending") {
++            var pending = animEl("div", "sd-pending", t("pt_pending", {
++                slide: SD.request.slide,
++                type: SD.request.page_type
++            }));
++            var cancel = animEl("div", "anim-actions");
++            cancel.appendChild(animButton("danger", t("pt_cancel"), sdCancelRequest));
++            pending.appendChild(cancel);
++            sdPanelEl.appendChild(pending);
++        }
++
++        if (SD.receipt && SD.receipt.ok) {
++            sdPanelEl.appendChild(animEl("div", "anim-note", t("pt_last_run", {
++                seconds: SD.receipt.total_seconds,
++                mode: SD.receipt.mode
++            })));
++        }
++
++        if (SD.status) {
++            sdPanelEl.appendChild(animEl(
++                "div",
++                "anim-status" + (SD.statusErr ? " err" : ""),
++                SD.status
++            ));
++        }
++    }
++
++    function loadPageTypes() {
++        return fetch("/api/pagetypes", { cache: "no-store" })
++            .then(function (res) { return res.json(); })
++            .then(function (data) {
++                SD.available = !!data.available;
++                if (!SD.available) return null;
++                SD.pageTypes = data.page_types || [];
++                SD.keep = data.keep || "keep";
++                return fetch("/api/regen", { cache: "no-store" })
++                    .then(function (res) { return res.json(); })
++                    .then(function (state) {
++                        SD.request = state.request || null;
++                        SD.receipt = state.receipt || null;
++                        sdRenderPanel();
++                        sdSyncSelection();
++                        return state;
++                    });
++            })
++            .catch(function () { SD.available = false; return null; });
++    }
++
+     loadConfig().then(function () {
+         loadSlides();
+         startSlidePolling();
+         loadAnimations();
++        loadPageTypes();
+     });
+     initRubberBand();
+     initKeyboardShortcuts();
+diff --git a/skills/ppt-master/scripts/svg_editor/static/index.html b/skills/ppt-master/scripts/svg_editor/static/index.html
+index 52dc149..55ee350 100644
+--- a/skills/ppt-master/scripts/svg_editor/static/index.html
++++ b/skills/ppt-master/scripts/svg_editor/static/index.html
+@@ -41,6 +41,7 @@
+             </div>
+             <div class="panel-header" data-i18n="panel_edit_annotate">Edit / Annotate</div>
+             <div id="pending-status" class="pending-status"></div>
++            <div id="pagetype-panel" style="display:none;"></div>
+             <div id="selection-info">
+                 <div class="section-label" data-i18n="label_selected_element">Selected element</div>
+                 <div id="selected-element" class="empty" data-i18n="empty_selected_element">Click an element on the slide to select it</div>
+diff --git a/skills/ppt-master/scripts/svg_to_pptx.py b/skills/ppt-master/scripts/svg_to_pptx.py
+index 4240b63..169027b 100644
+--- a/skills/ppt-master/scripts/svg_to_pptx.py
++++ b/skills/ppt-master/scripts/svg_to_pptx.py
+@@ -18,6 +18,101 @@ from svg_to_pptx import main
+ 
+ configure_utf8_stdio()
+ 
++
++# --- shiftdeck overlay: auto-expand the confirmed deck animation preset -------
++# The confirmation page can only record the chosen preset id in
++# confirm_ui/result.json (animations.json accepts version/defaults/slides and
++# nothing else), so it writes a defaults-only sidecar: page transitions but zero
++# element animation. Without this hook the user must remember to run
++# overlay/animations/apply_preset.py by hand, and a forgotten run silently ships
++# a deck with no animation. Expanding here — the last step that reads the
++# sidecar — makes the standard Step 7 command sufficient on its own.
++def _shiftdeck_project_path(argv):
++    """Return the project directory from an argv, ignoring option values.
++
++    Matching on "is a directory that looks like a project" is what keeps option
++    values (``-o out.pptx``, ``-f ppt169``) from being mistaken for the target.
++    """
++    for arg in argv:
++        if arg.startswith('-'):
++            continue
++        candidate = Path(arg)
++        if candidate.is_dir() and (
++            (candidate / 'svg_output').is_dir()
++            or (candidate / 'spec_lock.md').is_file()
++        ):
++            return candidate
++    return None
++
++
++def _shiftdeck_animation_overlay():
++    """Import overlay/animations/shiftdeck_animations.py, or return ``None``."""
++    for parent in Path(__file__).resolve().parents:
++        overlay = parent / 'overlay' / 'animations'
++        if not (overlay / 'shiftdeck_animations.py').is_file():
++            continue
++        if str(overlay) not in sys.path:
++            sys.path.insert(0, str(overlay))
++        import shiftdeck_animations  # noqa: PLC0415
++
++        return shiftdeck_animations
++    return None
++
++
++def _shiftdeck_auto_animations(argv) -> None:
++    """Expand the confirmed preset into animations.json before exporting.
++
++    Deliberately narrow so it cannot surprise anyone:
++    * no ``deck_animation.preset`` in result.json  -> does nothing (upstream);
++    * animations.json already has ``slides``       -> does nothing, so a
++      hand-tuned sidecar from the live preview is never overwritten;
++    * ``--no-animations`` / ``--animation-config`` -> does nothing, the caller
++      already said what it wants.
++    Any failure degrades to a stderr warning; the export itself continues.
++    """
++    if '--no-animations' in argv or '--animation-config' in argv:
++        return
++    project_path = _shiftdeck_project_path(argv)
++    if project_path is None:
++        return
++    try:
++        overlay = _shiftdeck_animation_overlay()
++        if overlay is None:
++            return
++        preset_id = overlay.selected_preset_id(project_path)
++        if not preset_id:
++            return
++        existing = overlay.read_config(project_path)
++        if existing and existing.get('slides'):
++            return
++        svg_dir = project_path / 'svg_output'
++        if not svg_dir.is_dir() or not any(svg_dir.glob('*.svg')):
++            return
++        written, errors = overlay.apply_preset(
++            project_path, preset_id, keep_slides=False,
++        )
++    except Exception as exc:  # noqa: BLE001 - never block an export
++        print(
++            f'Warning: shiftdeck could not expand the animation preset: {exc}',
++            file=sys.stderr,
++        )
++        return
++    if errors:
++        print(
++            'Warning: shiftdeck animation preset expansion rejected: '
++            + errors[0],
++            file=sys.stderr,
++        )
++        return
++    if written:
++        print(
++            f"[shiftdeck] expanded animation preset '{preset_id}' into "
++            f'{written}',
++            file=sys.stderr,
++        )
++
++
+ if __name__ == '__main__':
+     require_skill_integrity()
++    _shiftdeck_auto_animations(sys.argv[1:])
+     raise SystemExit(main())

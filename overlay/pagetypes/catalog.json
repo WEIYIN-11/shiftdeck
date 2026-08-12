@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "note": "頁型選擇器的唯一資料來源。id 必須等於同層資料夾名；每個資料夾要有 skeleton.svg（縮圖兼骨架）與 contract.md（重畫規則）。新增頁型＝新增一個資料夾＋這裡一筆，不必改任何程式碼。",
+  "page_types": [
+    {
+      "id": "comparison",
+      "label_zh_tw": "對比頁",
+      "label_zh": "对比页",
+      "label_en": "Comparison",
+      "label_ja": "比較",
+      "desc_zh_tw": "兩個並列選項，在同一組面向上逐條對照。3–5 個面向。",
+      "desc_zh": "两个并列选项，在同一组面向上逐条对照。3–5 个面向。",
+      "desc_en": "Two side-by-side options compared row by row on the same criteria. 3-5 rows.",
+      "desc_ja": "2 つの選択肢を同じ観点で 1 行ずつ比較。3〜5 行。",
+      "flex": {
+        "unit_zh_tw": "面向列",
+        "unit_zh": "面向行",
+        "unit_en": "rows",
+        "unit_ja": "行",
+        "min": 3,
+        "max": 5
+      }
+    },
+    {
+      "id": "swot",
+      "label_zh_tw": "SWOT",
+      "label_zh": "SWOT",
+      "label_en": "SWOT",
+      "label_ja": "SWOT",
+      "desc_zh_tw": "內部條件 × 外部情勢的固定四象限，正負兩面同時交代。",
+      "desc_zh": "内部条件 × 外部情势的固定四象限，正负两面同时交代。",
+      "desc_en": "Fixed four quadrants: internal capability against external situation, upside and downside together.",
+      "desc_ja": "内部要因と外部環境の固定 4 象限。プラス面とマイナス面を同時に提示。",
+      "flex": {
+        "unit_zh_tw": "象限",
+        "unit_zh": "象限",
+        "unit_en": "quadrants",
+        "unit_ja": "象限",
+        "min": 4,
+        "max": 4
+      }
+    },
+    {
+      "id": "kpi-dashboard",
+      "label_zh_tw": "KPI 儀表板",
+      "label_zh": "KPI 仪表板",
+      "label_en": "KPI dashboard",
+      "label_ja": "KPI ダッシュボード",
+      "desc_zh_tw": "3–6 個同層級關鍵指標，重點在現在的水準與跟上期比。",
+      "desc_zh": "3–6 个同层级关键指标，重点在当前水准与上期对比。",
+      "desc_en": "Three to six peer-level metrics: where they stand now and how they moved.",
+      "desc_ja": "同じ粒度の主要指標 3〜6 個。現在の水準と前期比を示す。",
+      "flex": {
+        "unit_zh_tw": "指標",
+        "unit_zh": "指标",
+        "unit_en": "metrics",
+        "unit_ja": "指標",
+        "min": 3,
+        "max": 6
+      }
+    },
+    {
+      "id": "flowchart",
+      "label_zh_tw": "流程圖",
+      "label_zh": "流程图",
+      "label_en": "Flowchart",
+      "label_ja": "フロー図",
+      "desc_zh_tw": "有先後順序的線性流程，每一步有負責人或產出。3–7 個節點。",
+      "desc_zh": "有先后顺序的线性流程，每一步有负责人或产出。3–7 个节点。",
+      "desc_en": "A linear ordered process; each step names an owner or an output. 3-7 nodes.",
+      "desc_ja": "順序のある直線的なプロセス。各ステップに担当者か成果物。3〜7 ノード。",
+      "flex": {
+        "unit_zh_tw": "節點",
+        "unit_zh": "节点",
+        "unit_en": "nodes",
+        "unit_ja": "ノード",
+        "min": 3,
+        "max": 7
+      }
+    }
+  ]
+}

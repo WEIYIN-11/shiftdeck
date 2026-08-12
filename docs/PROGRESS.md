@@ -1,6 +1,6 @@
 # shiftdeck 進度
 
-> 最後更新：2026-08-12 09:05
+> 最後更新：2026-08-12 10:35
 > 本檔是 session 之間的交接點。開新 session 時先讀這份，再讀對應的 `handoff/`。
 
 ## 環境
@@ -18,7 +18,7 @@
 | 1 繁中化 | ✅ 完成並驗收 | `8cedaca` |
 | 2 頁型庫 | ✅ 完成並驗收 | `07c15f6` |
 | 3 動畫選擇器 | ✅ 完成並提交 | `d4450d8` |
-| 4 單頁重生成 | ⏸ 可開工（階段 3 已釋出 `svg_editor/app.js`） | — |
+| 4 單頁重生成 | ✅ P0／P1／P2 全部完成並驗收 | 待提交 |
 
 **依賴**：1 → 3 → 4 為純序列（都動 `svg_editor/static/app.js`）。階段 2 已與 1 並行完成。
 
@@ -59,6 +59,29 @@
 - `check_zhtw.py` 18 項全過（新增 28 個 UI 字串 × 4 語言）
 
 
+### 階段 4（單頁重生成 ＋ 換頁型 ＋ 套組自動套用）
+
+實跑驗證，全部通過。逐項見 `handoff/stage4-single-page.md` 的驗收清單。
+
+- **兩次真實重生成**：`04_flow_4.svg` 流程圖 → 6 指標 KPI 儀表板；`01_comparison.svg`
+  沿用現有版面重畫。每次都逐檔比對 hash ＋ `mtime_ns`：**其他頁的 `svg_output/`、
+  `svg_final/` 逐 byte 相同且 mtime 未變**，解壓 .pptx 比對 slide XML 也逐檔相同
+- **端到端 26%**（門檻 1/3）。AI 重畫一頁實測 66s（09:53:25 → 09:54:31）；
+  全量重跑要重畫 4 頁。機械管線分項與「單頁路徑反而慢 0.94s」的原因見交接文件
+- **`--pages` 的實測價值**：20 頁每頁一張 2400×1350 PNG 的專案，全量 finalize 3.007s
+  vs 增量 0.768s（3.9×），且兩者產出的 `svg_final/` 20 檔逐 byte 相同。純文字專案
+  上則毫無差別（全被直譯器啟動時間吃掉）——這是誠實的邊界
+- **P1 打中的正是回報的坑**：確認頁只能寫出 defaults-only 的 sidecar（0 列動畫），
+  匯出時自動升級成 4 頁完整設定，.pptx 內含 25 列原生動畫，全程零手動指令
+- **P2 零回歸用 git 對照證明**：從 `HEAD` 取出階段 3 的 `shiftdeck_animations.py`
+  實跑，三個內建套組的展開結果與新版逐鍵相同（professional 25 列／lively 28 列／
+  minimal 0 列）
+- **覆蓋層拿掉就退回上游**：把 `overlay/` 改名後，編輯器照常啟動、新 API 全回
+  `available:false`／404、匯出與 finalize 都正常且不吐任何 shiftdeck 訊息
+- **兩道閘門**：`svg_quality_checker --stage final` 4/4 頁 0 error 0 warning；
+  `visual_check.py` 逐頁 PNG **四頁都實際看過**，無跑版／擁擠／重疊
+- `check_zhtw.py` 18 項全過（新增 22 個 UI 字串 × 4 語言，zh-TW 鍵數 105 → 133）
+
 ### 使用者驗收回饋與處置（2026-08-12）
 
 | 回饋 | 處置 |
@@ -74,6 +97,26 @@
 **每個匯出物都要過兩道**：`svg_quality_checker`（幾何估算）＋ `visual_check`（真實字型渲染）。
 這是從使用者實際回饋反推出的功能：checker 對跑版頁報 0 errors，人眼一看就發現撐框。
 原 v2 的「vision 視覺自檢」提前實現了一半（渲染管線就緒，AI 自動看圖迴路留給階段 4 之後）。
+
+### 階段 4（單頁重生成＋動畫客製化）
+
+P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
+
+- **patch 疊加**：三個 patch 從乾淨 HEAD 依序套用後 tree SHA `98ca7361` 與工作區**完全相同**
+  → 覆蓋層架構健全，上游更新時換掉 `vendor/` 重套即可
+- **換頁型實測**：流程圖頁換成 KPI 儀表板，內容被重新填入（非只套骨架），LibreOffice 渲染乾淨
+- **耗時**：全量 267s vs 單頁 70s＝**26%**，低於 1/3 門檻
+
+**agent 誠實回報的反直覺發現**（值得記住）：4 頁純文字專案上，單頁路徑的**機械部分反而慢 0.94 秒**
+——多出來的是那道單頁品質檢查。省下的 100% 來自 AI 只重畫一頁。原因：(1) 匯出必須全量，
+引擎釋出閘門要比對 `svg_output/` 全體指紋；(2) 純文字專案 finalize 幾乎全是直譯器啟動時間。
+`--pages` 的價值要在有圖的專案才顯現：20 頁每頁掛 2400×1350 PNG，全量 3.007s vs 增量 0.768s（3.9×）。
+
+### 已知行為：換頁型後檔名不變
+
+`04_flow_4.svg` 換成 KPI 後檔名不改。**這是刻意的**——檔名是 `animations.json` 的 slide key，
+也是品質檢查頁面名冊的鍵，改名要同步搬動兩處。目前判斷維持不改（降低耦合風險），
+若日後覺得困擾，再做「重新命名」功能並連帶搬移 sidecar 條目。
 
 ## 待人工驗收（agent 看不到 UI，必須人眼確認）
 
@@ -99,6 +142,28 @@
 12. 動畫面板在右側欄的**版面是否過擠**（效果列有 2 個下拉＋2 個按鈕，繁中標籤比英文長）
 13. `entrance_split` 的 `_in` / `_out` 在瀏覽器預覽裡是同一個動作（單一 `clip-path` 無法表達兩段式揭示）；匯出的 PPTX 是正確的，只有預覽是近似
 
+### 階段 4（agent 只驗到 API 與檔案，驗不到版面觀感）
+
+> 產物留在 `verify/stage4/`：`stage4_single_page_regen.pptx`（兩次單頁重生成後的成品）、
+> `slide_01..04.png`（LibreOffice 實際渲染，agent 已逐張看過）、
+> `current.json` / `regen_request.json` / `regen_last_run.json`（執行期狀態檔範例）。
+> 測試專案本身已依規定刪除。
+
+14. **頁型挑選面板長什麼樣**——右欄新增一塊「頁型」，預設只有一行（頁名 ＋「換頁型」鈕），
+    按下去才展開 2 欄縮圖格。要確認：(a) 4 個 `skeleton.svg` 縮圖在右欄寬度下看得清楚、
+    認得出版面差異；(b)「維持現有版面」那張橫跨兩欄的卡片不突兀；(c) 選中的藍框明顯
+15. **右欄會不會太擠**——這是階段 3 的第 12 項的延續。現在同一欄裡有：頁型面板、
+    選取元素、動畫面板（又多了一列「套組另存」的兩個輸入框 ＋ 按鈕）、標註、動作鈕。
+    繁中標籤比英文長，**四種語言都要看一次**
+16. **送出重畫請求之後的引導夠不夠清楚**——按鈕按下去只會存一個 json，UI 顯示
+    「請求已存好。回到對話說「重畫這一頁」」。要確認使用者看得懂這是「去跟 AI 講」
+    而不是「系統會自己動」
+17. **`04_flow_4.svg` 這個檔名**——它現在的內容是 KPI 儀表板。換頁型不改檔名是刻意的
+    （改名會動到 `animations.json` 的 slide key 與品質檢查的頁面名冊），但使用者可能覺得怪。
+    **需要你定奪**：要不要提供「換頁型時一併改檔名」的選項
+18. **自訂套組存檔後的清單顯示**——存成 `my-deck` 之後，確認頁與編輯器的套組下拉
+    應該多一項並標「（自訂）」。確認頁那邊 agent 沒有實跑過（只驗了編輯器端）
+
 
 ## E 區決策（2026-08-12 使用者裁定：全部照建議）
 
@@ -123,6 +188,10 @@
 4. **`defaults.animation.effect: "none"` 不會壓掉明列的 group 效果**（實測 26 列都有寫出來）。這正是精準控制的做法：只有列出來的 group 會動。
 5. **`direction` 的語意隨效果族而變**：`entrance_fly` 的 `up` 是「從上方進來」（往下移動），`entrance_wipe` 的 `up` 是「往上擦除」。registry 的 `row_xml` 是唯一可信來源，不要照字面猜。
 6. **上游 `_localized_text_present()` 只認 `_zh` / `_en` / `_ja`，不認 `_zh_tw`**（`confirm_ui/server.py`）。stage2 推薦檔的 `custom_candidates` 與 `design_directions` 只寫繁中會被 409 擋下。階段 1 沒動它是對的，但這是繁中化尚未覆蓋到的一角。
+7. **`svg_quality_checker.py <單一 svg 檔>` 本來就能跑**，且會自己往上找到專案的 `spec_lock.md`。單頁品質檢查不需要任何 patch——階段 4 交接文件說 `--stage first-page` 是最重要的線索，但真正的線索是 CLI 一直接受單一檔案路徑。
+8. **匯出有指紋閘門**：`svg_to_pptx` 會比對 `svg_output/` 全體的指紋與 `validation/svg_quality_report.json`，對不上就拒絕匯出。所以「單頁重生成」永遠要在匯出前補跑一次全份 final 檢查（0.9s）。這不是可以優化掉的東西，是釋出閘門。
+9. **`finalize_svg.py` 的產物發布是整個目錄原子替換**，但候選目錄是 `copytree`（＝`copy2`）自 `svg_output/`，所以沒被任何步驟改到的頁會保留原 mtime。純文字專案上全量 finalize 也不會重新蓋章 mtime——`--pages` 真正買到的是**時間**，不是 mtime 穩定性。
+10. **`animations.json` 的 `slides` 鍵是「已展開」的可靠訊號**。確認頁只能寫 `version`+`defaults`（發現 3），所以「有 preset 但沒有 slides」＝使用者選了套組卻還沒展開，這正是 P1 唯一該出手的時機；有 `slides` 就一律不碰，手動微調永遠不會被蓋掉。
 
 ## 已修正的坑
 
@@ -139,14 +208,27 @@
 
 **vendor 端只有接線**：兩個 `server.py` 各加一段「往上找 `overlay/animations/`」的 bootstrap 與新 API，找不到就整組功能自動關閉、行為退回上游（已實測：把 overlay 改名後 `/api/animations` 回 `available:false`、`/api/animation-presets` 回空清單，兩個伺服器都正常啟動）。
 
+## 階段 4 的檔案地圖
+
+| 檔案 | 角色 |
+|---|---|
+| `overlay/pagetypes/catalog.json` | 頁型清單＋四語標籤＋彈性範圍（**唯一資料來源**；新增頁型＝一個資料夾＋這裡一筆，不必改程式） |
+| `overlay/regen/shiftdeck_regen.py` | 共用函式庫：選取狀態通道、頁型目錄與縮圖、重生成請求、給 AI 的 briefing |
+| `overlay/regen/regen_page.py` | CLI：`--show` 讀請求／`--request`＋`--page` 跑快路徑／`--full` 量測基準 |
+| `overlay/animations/user/README.md` | 自訂套組的格式、輪替語法、要不要進版控 |
+| `overlay/patches/04-single-page-regen.patch` | 引擎端接線（1,015 行，基準＝01→03 依序套用後的樹） |
+
+**專案內的執行期檔案**（都在上游既有的 `<專案>/live_preview/` 底下）：
+`current.json`（現在選了哪一頁／哪個元素）、`regen_request.json`（待重畫的請求）、
+`regen_last_run.json`（上次快路徑的分步耗時）、`regen_history.jsonl`（請求生命週期）。
+
+**單頁重生成的實際流程**：使用者在預覽裡選頁型 → 按「請 AI 重畫這一頁」（伺服器只
+記錄請求，不重畫）→ 回到對話 → AI 跑 `regen_page.py --show` 拿到頁面路徑、契約、
+骨架與備註 → **只重寫那一支 SVG** → 跑 `regen_page.py --request` 完成單頁檢查、
+增量 finalize、匯出，並把請求標記為完成。
+
 ## 下一步
 
-1. 階段 3 驗收（人工項目見上方 10–13）→ 提交
-2. 派階段 4（`docs/handoff/stage4-single-page.md`）
-3. 全部完成後：人工驗收清單 → 授權送 PR → 發布
-
-派工指令格式：
-
-```
-讀 docs/PROGRESS.md 與 docs/handoff/stage4-single-page.md，執行階段 4
-```
+1. 人工驗收：階段 1（1–6）、階段 2（7–9）、階段 3（10–13）、階段 4（14–18）
+2. 第 17 項需要你定奪（換頁型要不要一併改檔名）
+3. 提交階段 4 → 授權送上游 PR → 發布
