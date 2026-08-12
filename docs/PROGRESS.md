@@ -130,13 +130,12 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 
 ### 階段 2
 7. **在 PowerPoint 開啟測試 .pptx**，確認方框與箭頭是可選取的原生圖形：
-   `C:\Users\try19\AppData\Local\Temp\claude\C--Users-try19-Desktop-resourse\22d00681-ebd0-4093-a48b-d3e0b3d5b07f\scratchpad\vendorcheck\exports\vendorcheck_20260811_183540.pptx`
+   `verify/pagetypes_四個頁型.pptx`（與 `_v2` 版本）
 8. 流程圖 5／6 節點佈局未實跑（3／4／7 已驗證），首次使用時看一眼
 9. 頁型縮圖尚未產出 PNG；若階段 4 選擇器需要點陣圖，要先決定 rasteriser
 
 ### 階段 3
-10. **在 PowerPoint 開啟四份測試 .pptx**，確認動畫真的照設定播放（agent 只能驗到 XML 節點存在且結構正確，驗不到 PowerPoint 的實際觀感）。資料夾：
-    `C:\Users\try19\AppData\Local\Temp\claude\C--Users-try19-Desktop-resourse\22d00681-ebd0-4093-a48b-d3e0b3d5b07f\scratchpad\stage3-exports\`
+10. **在 PowerPoint 開啟四份測試 .pptx**，確認動畫真的照設定播放（agent 只能驗到 XML 節點存在且結構正確，驗不到 PowerPoint 的實際觀感）。資料夾：`verify/`，
     內含 `stage3_professional.pptx`／`stage3_lively.pptx`／`stage3_minimal.pptx`／`stage3_none.pptx` 與各自的 `*.animations.json`。**`none` 那份是回歸對照組**，動畫窗格應該完全是空的。
 11. **瀏覽器預覽與 PowerPoint 的方向感是否一致**——`entrance_fly` 的 `direction` 指的是「從哪個邊進來」，`entrance_wipe` 指的是「擦除掃過的方向」，兩者語意不同但共用同一組上／右／下／左標籤。預覽是唯一的消歧手段，值得人眼比對一次
 12. 動畫面板在右側欄的**版面是否過擠**（效果列有 2 個下拉＋2 個按鈕，繁中標籤比英文長）

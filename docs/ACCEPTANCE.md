@@ -12,10 +12,10 @@
 
 ## 開始前：啟動環境
 
-開一個終端機，貼這段（會開啟繁中確認頁）：
+在 shiftdeck 資料夾開一個終端機，貼這段（會開啟繁中確認頁）：
 
 ```bash
-cd C:\Users\try19\Desktop\resourse\shiftdeck\vendor\ppt-master
+cd vendor/ppt-master
 python skills/ppt-master/scripts/project_manager.py init verify_ui --format ppt169
 python skills/ppt-master/scripts/confirm_ui/server.py projects/verify_ui_ppt169_20260812 --daemon
 ```
@@ -26,7 +26,7 @@ python skills/ppt-master/scripts/confirm_ui/server.py projects/verify_ui_ppt169_
 python skills/ppt-master/scripts/confirm_ui/server.py projects/verify_ui_ppt169_20260812 --shutdown
 ```
 
-測試檔案都集中在 **`C:\Users\try19\Desktop\resourse\shiftdeck\verify\`**（直接雙擊開啟）。
+測試檔案都集中在 repo 根目錄的 **`verify/`**（直接雙擊開啟；此資料夾不進版控）。
 
 ---
 

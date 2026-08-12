@@ -1,7 +1,7 @@
 # 簡報工作流第一性原理分析：ppt-master × open-slide 逆向工程
 
 > 2026-08-11 · 基於實跑 ppt-master 完整管線（14 頁 deck）+ open-slide 原始碼深度探索
-> 資源位置：`C:\Users\try19\Desktop\resourse\ppt-master`、`C:\Users\try19\Desktop\resourse\open-slide`、`C:\Users\try19\Desktop\resourse\openslide-ppt-skill`（⚠️ 已確認損壞，見附錄）
+> 分析對象：`ppt-master`、`open-slide`、`openslide-ppt-skill`（⚠️ 已確認損壞，見附錄）三份本機原始碼
 
 ---
 
