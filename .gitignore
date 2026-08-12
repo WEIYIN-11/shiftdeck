@@ -2,7 +2,9 @@
 vendor/
 
 # 使用者的簡報專案
-projects/
+# 用 projects/* 而非 projects/——git 無法用 ! 重新納入被忽略目錄底下的檔案，
+# 寫成 projects/ 會連 .gitkeep 一起排除，clone 下來就沒有這個資料夾
+projects/*
 !projects/.gitkeep
 
 # Python
