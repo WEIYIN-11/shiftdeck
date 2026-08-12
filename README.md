@@ -29,7 +29,7 @@ shiftdeck 把三個選擇權還給你：
 需要 Python 3.10+ 與 Git。
 
 ```bash
-git clone https://github.com/WEIYIN-11/shiftdeck.git
+git clone https://github.com/Coolkidlab-Yin/shiftdeck.git
 cd shiftdeck
 python scripts/setup.py
 ```

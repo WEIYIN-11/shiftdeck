@@ -24,7 +24,7 @@
 開一個終端機（Windows 用 PowerShell），貼這三行：
 
 ```bash
-git clone https://github.com/WEIYIN-11/shiftdeck.git
+git clone https://github.com/Coolkidlab-Yin/shiftdeck.git
 cd shiftdeck
 python scripts/setup.py
 ```
