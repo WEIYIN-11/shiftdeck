@@ -1,0 +1,1505 @@
+diff --git a/skills/ppt-master/scripts/confirm_ui/server.py b/skills/ppt-master/scripts/confirm_ui/server.py
+index 1824473..42f7247 100644
+--- a/skills/ppt-master/scripts/confirm_ui/server.py
++++ b/skills/ppt-master/scripts/confirm_ui/server.py
+@@ -107,6 +107,91 @@ _PALETTE_ROLES = (
+ _TYPOGRAPHY_SIZE_ROLES = ('title', 'subtitle', 'annotation')
+ _HEX_COLOR_RE = re.compile(r'#?(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\Z')
+ 
++# --- shiftdeck overlay: deck animation presets -------------------------------
++# The overlay lives outside this vendored engine. When it is absent — a plain
++# upstream checkout — every function below no-ops and the confirmation page
++# behaves exactly as it did before.
++_SHIFTDECK_ANIMATIONS: Optional[object] = None
++_SHIFTDECK_ANIMATIONS_TRIED = False
++
++
++def _shiftdeck_animations():
++    """Import the shiftdeck animation overlay once, or return ``None``."""
++    global _SHIFTDECK_ANIMATIONS, _SHIFTDECK_ANIMATIONS_TRIED
++    if _SHIFTDECK_ANIMATIONS_TRIED:
++        return _SHIFTDECK_ANIMATIONS
++    _SHIFTDECK_ANIMATIONS_TRIED = True
++    for parent in _SCRIPTS_DIR.parents:
++        overlay = parent / 'overlay' / 'animations'
++        if not (overlay / 'shiftdeck_animations.py').is_file():
++            continue
++        if str(overlay) not in sys.path:
++            sys.path.insert(0, str(overlay))
++        try:
++            import shiftdeck_animations  # noqa: PLC0415
++        except ImportError as exc:
++            logger.warning('shiftdeck animation overlay not importable: %s', exc)
++            break
++        _SHIFTDECK_ANIMATIONS = shiftdeck_animations
++        break
++    return _SHIFTDECK_ANIMATIONS
++
++
++def _normalize_deck_animation(result: dict) -> Optional[str]:
++    """Validate ``deck_animation`` against the overlay's preset catalog."""
++    raw = result.get('deck_animation')
++    if raw is None:
++        return None
++    if isinstance(raw, str):
++        raw = {'preset': raw}
++    if not isinstance(raw, dict):
++        return 'deck_animation must be an object with a "preset" field'
++    preset_id = str(raw.get('preset') or '').strip()
++    overlay = _shiftdeck_animations()
++    if not preset_id or overlay is None:
++        result.pop('deck_animation', None)
++        return None
++    if preset_id != overlay.NO_PRESET and preset_id not in overlay.preset_ids():
++        return f'deck_animation.preset is not a known preset: {preset_id}'
++    result['deck_animation'] = {'preset': preset_id}
++    return None
++
++
++def _apply_deck_animation(project_path: Path, result: dict) -> None:
++    """Write ``<project>/animations.json`` for the confirmed preset.
++
++    A missing or ``none`` preset writes nothing at all, so a deck whose user
++    never picked an animation keeps the engine's own defaults byte for byte.
++    """
++    overlay = _shiftdeck_animations()
++    if overlay is None:
++        return
++    deck_animation = result.get('deck_animation')
++    if not isinstance(deck_animation, dict):
++        return
++    preset_id = str(deck_animation.get('preset') or '').strip()
++    if not preset_id or preset_id == overlay.NO_PRESET:
++        return
++    svg_dir = project_path / 'svg_output'
++    defaults_only = not (svg_dir.is_dir() and any(svg_dir.glob('*.svg')))
++    try:
++        written, errors = overlay.apply_preset(
++            project_path,
++            preset_id,
++            defaults_only=defaults_only,
++        )
++    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
++        logger.warning('deck animation preset %s not applied: %s', preset_id, exc)
++        return
++    if errors:
++        logger.warning(
++            'deck animation preset %s rejected by the engine validator: %s',
++            preset_id,
++            '; '.join(errors),
++        )
++        return
++    logger.info('deck animation preset %s written to %s', preset_id, written)
++
+ # Static option universe served at /api/catalogs (canvas synced live from config).
+ _SKILL_DIR = Path(__file__).resolve().parents[2]
+ _TEMPLATES_DIR = _SKILL_DIR / 'templates'
+@@ -2429,6 +2514,20 @@ def create_app(
+         except (OSError, json.JSONDecodeError) as exc:
+             return jsonify({'error': f'invalid catalogs.json: {exc}'}), 500
+ 
++    @app.route('/api/animation-presets')
++    def get_animation_presets():
++        """Serve the shiftdeck deck-animation presets for the Stage 2 picker."""
++        overlay = _shiftdeck_animations()
++        payload = {'presets': []}
++        if overlay is not None:
++            try:
++                payload['presets'] = overlay.ui_presets()
++            except (OSError, ValueError, json.JSONDecodeError) as exc:
++                logger.warning('animation presets unavailable: %s', exc)
++        resp = jsonify(payload)
++        resp.headers['Cache-Control'] = 'no-store'
++        return resp
++
+     @app.route('/api/icon-previews')
+     def get_icon_previews():
+         """Serve real sample icons from templates/icons for the icon chooser."""
+@@ -2716,6 +2815,9 @@ def create_app(
+             )
+             if proactive_result_error:
+                 return jsonify({'error': proactive_result_error}), 400
++            deck_animation_error = _normalize_deck_animation(result)
++            if deck_animation_error:
++                return jsonify({'error': deck_animation_error}), 400
+         _normalize_custom_selections(result)
+         locked_values = _apply_locked_recommendations(
+             result,
+@@ -2741,6 +2843,8 @@ def create_app(
+         if write_selection and selection_receipt is not None:
+             _write_json_atomic(selection_file, selection_receipt)
+         _write_json_atomic(result_file, result)
++        if result['stage'] == 'final':
++            _apply_deck_animation(project_path, result)
+         _sync_session_state(
+             confirm_dir,
+             server_port=app.config.get('SERVER_PORT'),
+diff --git a/skills/ppt-master/scripts/confirm_ui/static/app.js b/skills/ppt-master/scripts/confirm_ui/static/app.js
+index ce66988..10cf4b9 100644
+--- a/skills/ppt-master/scripts/confirm_ui/static/app.js
++++ b/skills/ppt-master/scripts/confirm_ui/static/app.js
+@@ -128,6 +128,11 @@
+             proactive_custom_animations_desc: "Off by default. Strategist motion suggestions remain available; turn this on to have the agent create custom animations without a separate request.",
+             proactive_narration_audio: "Proactively generate narration audio",
+             proactive_narration_audio_desc: "Off by default. This raw choice does not rewrite the speaker-notes toggle; the Strategist resolves narration's effective notes dependency in the Design Spec.",
++            sec_deck_animation: "Deck animation",
++            deck_animation_hint: "One motion character for the whole deck. Individual elements can still be tuned later in the live preview.",
++            deck_animation_none: "Not set (default)",
++            deck_animation_none_desc: "Writes no animation config at all: fade page transitions and no in-page motion, exactly as before.",
++            deck_animation_unavailable: "Animation presets are unavailable in this installation; the deck keeps the engine defaults.",
+             font_heading: "Heading",
+             font_body: "Body",
+             font_selection: "Font selection",
+@@ -306,6 +311,11 @@
+             proactive_custom_animations_desc: "初期設定はオフです。ストラテジストの動きの提案は維持され、オンにすると個別の依頼がなくてもカスタムアニメーションを作成します。",
+             proactive_narration_audio: "ナレーション音声を能動的に生成",
+             proactive_narration_audio_desc: "初期設定はオフです。この選択は発表者ノートの設定を書き換えません。ナレーションに必要なノートの有効状態は、ストラテジストが設計仕様で解決します。",
++            sec_deck_animation: "デッキのアニメーション",
++            deck_animation_hint: "デッキ全体の動きの性格を一括で決めます。個々の要素はライブプレビューで後から調整できます。",
++            deck_animation_none: "設定しない（既定）",
++            deck_animation_none_desc: "アニメーション設定を一切書き出しません。ページ切り替えはフェード、ページ内は動かない従来どおりの挙動です。",
++            deck_animation_unavailable: "この環境ではアニメーションプリセットを利用できません。エンジンの既定値のままになります。",
+             font_heading: "見出し",
+             font_body: "本文",
+             font_selection: "フォント選択",
+@@ -484,6 +494,11 @@
+             proactive_custom_animations_desc: "默认关闭。策略师的动画建议仍会保留；开启后，Agent 可在没有另行要求时实际制作自定义动画。",
+             proactive_narration_audio: "主动生成旁白音频",
+             proactive_narration_audio_desc: "默认关闭。这里保留原始选择，不改写演讲者备注开关；策略师会在设计规范中解析旁白所需的最终备注状态。",
++            sec_deck_animation: "整份动画",
++            deck_animation_hint: "一次决定整份简报的动效性格。个别元素之后仍可在实时预览里微调。",
++            deck_animation_none: "不设定（默认）",
++            deck_animation_none_desc: "完全不写出动画设定：页间淡入淡出、页内不动，与先前行为一致。",
++            deck_animation_unavailable: "此安装环境没有动画套组，简报将维持引擎默认值。",
+             font_heading: "标题",
+             font_body: "正文",
+             font_selection: "字体选择",
+@@ -662,6 +677,11 @@
+             proactive_custom_animations_desc: "預設關閉。策略師的動畫建議仍會保留；開啟後，Agent 可在沒有另行要求時實際製作自訂動畫。",
+             proactive_narration_audio: "主動生成旁白音訊",
+             proactive_narration_audio_desc: "預設關閉。這裡保留原始選擇，不改寫演講者備註開關；策略師會在設計規範中解析旁白所需的最終備註狀態。",
++            sec_deck_animation: "整份動畫",
++            deck_animation_hint: "一次決定整份簡報的動效性格。個別元素之後仍可在即時預覽裡微調。",
++            deck_animation_none: "不設定（預設）",
++            deck_animation_none_desc: "完全不寫出動畫設定：頁間淡入淡出、頁內不動，與先前行為一致。",
++            deck_animation_unavailable: "此安裝環境沒有動畫套組，簡報將維持引擎預設值。",
+             font_heading: "標題",
+             font_body: "正文",
+             font_selection: "字型選擇",
+@@ -865,6 +885,7 @@
+     var REC = null;     // current recommendation stage — AI picks + candidates
+     var ICON_PREVIEWS = {};  // /api/icon-previews — real SVG samples from templates/icons
+     var AI_IMAGE_COMPARISON = {};  // /api/ai-image-comparison — preset rendering catalog
++    var ANIMATION_PRESETS = [];  // /api/animation-presets — shiftdeck deck motion presets
+     var STATE = {};
+     var TEMPLATE_KINDS = ["brand", "style", "layout", "deck"];
+     var TEMPLATE_OPTIONS = null;
+@@ -3375,6 +3396,39 @@
+         host.appendChild(sec);
+     }
+ 
++    // One deck-wide motion character, chosen once. The element-level pass lives
++    // in the live preview editor; this only writes the deck defaults.
++    function deckAnimationOptions() {
++        var options = [{
++            id: "none",
++            label_en: MESSAGES.en.deck_animation_none,
++            label_zh: MESSAGES.zh.deck_animation_none,
++            label_zh_tw: MESSAGES["zh-TW"].deck_animation_none,
++            label_ja: MESSAGES.ja.deck_animation_none,
++            desc_en: MESSAGES.en.deck_animation_none_desc,
++            desc_zh: MESSAGES.zh.deck_animation_none_desc,
++            desc_zh_tw: MESSAGES["zh-TW"].deck_animation_none_desc,
++            desc_ja: MESSAGES.ja.deck_animation_none_desc
++        }];
++        return options.concat(ANIMATION_PRESETS || []);
++    }
++
++    function renderDeckAnimation(host) {
++        var sec = section("D", "sec_deck_animation", t("deck_animation_hint"));
++        if (!ANIMATION_PRESETS || !ANIMATION_PRESETS.length) {
++            sec.appendChild(el("div", "toggle-desc", t("deck_animation_unavailable")));
++            host.appendChild(sec);
++            return;
++        }
++        if (!STATE.deck_animation || typeof STATE.deck_animation !== "object") {
++            STATE.deck_animation = { preset: "none" };
++        }
++        enumField(sec, deckAnimationOptions(), "none",
++            function () { return STATE.deck_animation.preset || "none"; },
++            function (value) { STATE.deck_animation = { preset: value }; });
++        host.appendChild(sec);
++    }
++
+     function renderProactiveExecution(host) {
+         var sec = section("A", "sec_proactive_execution", t("proactive_execution_hint"));
+         var opts = [{ id: "off", label: t("off_default") }, { id: "on", label: t("on") }];
+@@ -3488,6 +3542,7 @@
+             renderImageDirection(host);
+             renderImageProduction(host);
+             renderFormulaPolicy(host);
++            renderDeckAnimation(host);
+             renderProactiveExecution(host);
+             renderMode(host);
+             renderRefine(host);
+@@ -3637,6 +3692,9 @@
+         STATE.proactive_speaker_notes = booleanRecommendation("proactive_speaker_notes", true);
+         STATE.proactive_custom_animations = booleanRecommendation("proactive_custom_animations", false);
+         STATE.proactive_narration_audio = booleanRecommendation("proactive_narration_audio", false);
++        // Default "none" writes no animations.json at all — an untouched deck
++        // must keep the engine's own fade/none behavior.
++        STATE.deck_animation = { preset: "none" };
+ 
+         STATE.generation_mode = pick("generation_mode", CAT.generation_mode);
+         STATE.refine_spec = !!((REC.refine_spec && REC.refine_spec.value) || (REC.recommend && REC.recommend.refine_spec));
+@@ -3939,6 +3997,11 @@
+             .catch(function () { return {}; });
+     }
+ 
++    function loadAnimationPresets() {
++        return fetchJson("/api/animation-presets", "animation presets")
++            .catch(function () { return { presets: [] }; });
++    }
++
+     function applyServerLanguage(data) {
+         var requested = data && data.lang;
+         if (requested !== "zh" && requested !== "en" && requested !== "ja" &&
+@@ -3957,12 +4020,14 @@
+             loadCatalogs(),
+             fetchJson("/api/recommendations", "recommendations"),
+             loadIconPreviews(),
+-            loadAiImageComparison()
++            loadAiImageComparison(),
++            loadAnimationPresets()
+         ]).then(function (res) {
+             CAT = res[0];
+             REC = res[1];
+             ICON_PREVIEWS = res[2] || {};
+             AI_IMAGE_COMPARISON = res[3] || {};
++            ANIMATION_PRESETS = (res[4] && res[4].presets) || [];
+             applyServerLanguage(REC);
+             var activeStage = forceStage || stageNumber(REC);
+             if (activeStage === 1) {
+diff --git a/skills/ppt-master/scripts/svg_editor/server.py b/skills/ppt-master/scripts/svg_editor/server.py
+index db0c82b..00b09a6 100644
+--- a/skills/ppt-master/scripts/svg_editor/server.py
++++ b/skills/ppt-master/scripts/svg_editor/server.py
+@@ -114,6 +114,34 @@ DEFAULT_PORT = 5050
+ PUBLIC_HOST = '127.0.0.1'
+ STARTUP_TIMEOUT = 15
+ 
++# --- shiftdeck overlay: element-level animation tuning ------------------------
++# Absent overlay (plain upstream checkout) => the endpoints report
++# ``available: false`` and the browser hides the animation panel entirely.
++_SHIFTDECK_ANIMATIONS: Optional[object] = None
++_SHIFTDECK_ANIMATIONS_TRIED = False
++
++
++def _shiftdeck_animations():
++    """Import the shiftdeck animation overlay once, or return ``None``."""
++    global _SHIFTDECK_ANIMATIONS, _SHIFTDECK_ANIMATIONS_TRIED
++    if _SHIFTDECK_ANIMATIONS_TRIED:
++        return _SHIFTDECK_ANIMATIONS
++    _SHIFTDECK_ANIMATIONS_TRIED = True
++    for parent in _ROOT_SCRIPTS_DIR.parents:
++        overlay = parent / 'overlay' / 'animations'
++        if not (overlay / 'shiftdeck_animations.py').is_file():
++            continue
++        if str(overlay) not in sys.path:
++            sys.path.insert(0, str(overlay))
++        try:
++            import shiftdeck_animations  # noqa: PLC0415
++        except ImportError as exc:
++            logger.warning('shiftdeck animation overlay not importable: %s', exc)
++            break
++        _SHIFTDECK_ANIMATIONS = shiftdeck_animations
++        break
++    return _SHIFTDECK_ANIMATIONS
++
+ 
+ def _server_url(port: int, path: str = '') -> str:
+     """Return the loopback URL shown to users and used by readiness probes."""
+@@ -922,6 +950,109 @@ def create_app(
+         stack.pop()
+         return jsonify({'status': 'ok', 'undo_depth': len(stack)})
+ 
++    # --- shiftdeck overlay: element-level animation tuning -------------------
++    def _animation_groups() -> dict:
++        """Return ``{slide_stem: [animatable group id, ...]}`` for the project."""
++        overlay = _shiftdeck_animations()
++        if overlay is None:
++            return {}
++        overlay.ensure_engine_importable()
++        from svg_to_pptx.animation_config import scan_project_targets  # noqa: PLC0415
++
++        targets_by_slide, _anonymous = scan_project_targets(project_path)
++        return {
++            slide: [
++                target.group_id for target in targets
++                if not target.chrome and not target.structurally_static
++            ]
++            for slide, targets in targets_by_slide.items()
++        }
++
++    @app.route('/api/animations')
++    def get_animations():
++        """Serve the sidecar, the curated effect menu, and the real anchors."""
++        overlay = _shiftdeck_animations()
++        if overlay is None:
++            return jsonify({'available': False})
++        try:
++            payload = {
++                'available': True,
++                'config': overlay.read_config(project_path),
++                'preset': overlay.selected_preset_id(project_path),
++                'presets': overlay.ui_presets(),
++                'menu': overlay.effect_menu(),
++                'groups': _animation_groups(),
++            }
++        except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
++            logger.warning('animation state unavailable: %s', exc)
++            return jsonify({'available': False, 'error': str(exc)}), 500
++        resp = jsonify(payload)
++        resp.headers['Cache-Control'] = 'no-store'
++        return resp
++
++    @app.route('/api/animations', methods=['POST'])
++    def save_animations():
++        """Validate one candidate sidecar with the engine, then write it.
++
++        An empty/absent ``config`` deletes ``animations.json`` so the deck falls
++        back to the engine defaults instead of carrying an empty husk.
++        """
++        overlay = _shiftdeck_animations()
++        if overlay is None:
++            return jsonify({'error': 'animation overlay unavailable'}), 404
++        payload = request.get_json(silent=True)
++        if not isinstance(payload, dict):
++            return jsonify({'error': 'invalid payload'}), 400
++        config = payload.get('config')
++        if config is None:
++            target = overlay.config_path(project_path)
++            if target.exists():
++                target.unlink()
++            return jsonify({'status': 'ok', 'removed': True})
++        if not isinstance(config, dict):
++            return jsonify({'error': 'config must be an object'}), 400
++        try:
++            errors = overlay.validate_config(project_path, config)
++        except (OSError, ValueError, RuntimeError) as exc:
++            return jsonify({'error': str(exc)}), 500
++        if errors:
++            return jsonify({'error': errors[0], 'errors': errors}), 400
++        written = overlay.write_config(project_path, config)
++        logger.info('animations.json written by the live preview: %s', written)
++        return jsonify({'status': 'ok', 'path': str(written)})
++
++    @app.route('/api/animations/preset', methods=['POST'])
++    def apply_animation_preset():
++        """Expand one deck preset against the project's real SVG anchors."""
++        overlay = _shiftdeck_animations()
++        if overlay is None:
++            return jsonify({'error': 'animation overlay unavailable'}), 404
++        payload = request.get_json(silent=True)
++        if not isinstance(payload, dict):
++            return jsonify({'error': 'invalid payload'}), 400
++        preset_id = str(payload.get('preset') or '').strip()
++        if preset_id == overlay.NO_PRESET:
++            target = overlay.config_path(project_path)
++            if target.exists():
++                target.unlink()
++            return jsonify({'status': 'ok', 'config': None, 'removed': True})
++        if preset_id not in overlay.preset_ids():
++            return jsonify({'error': f'unknown animation preset: {preset_id}'}), 400
++        try:
++            _written, errors = overlay.apply_preset(
++                project_path,
++                preset_id,
++                keep_slides=False,
++            )
++        except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
++            return jsonify({'error': str(exc)}), 500
++        if errors:
++            return jsonify({'error': errors[0], 'errors': errors}), 400
++        return jsonify({
++            'status': 'ok',
++            'config': overlay.read_config(project_path),
++        })
++
+     @app.route('/api/save-all', methods=['POST'])
+     def save_all():
+         annotations = app.config['ANNOTATIONS']
+diff --git a/skills/ppt-master/scripts/svg_editor/static/app.js b/skills/ppt-master/scripts/svg_editor/static/app.js
+index 4e127eb..23e97aa 100644
+--- a/skills/ppt-master/scripts/svg_editor/static/app.js
++++ b/skills/ppt-master/scripts/svg_editor/static/app.js
+@@ -80,7 +80,46 @@
+             nav_next: "Next slide (→)",
+             nav_last: "Last slide (End)",
+             nav_counter: "{current} / {total}",
+-            nav_empty: "— / —"
++            nav_empty: "— / —",
++            panel_animation: "Animation",
++            anim_deck_preset: "Deck preset",
++            anim_preset_none: "Not set (engine default)",
++            anim_apply_preset: "Apply to deck",
++            anim_apply_preset_confirm: "Apply this preset to every page? It replaces the current per-element animation settings.",
++            anim_anchor_label: "Animation target",
++            anim_not_anchor: "This element is not an animation target. PowerPoint animates whole top-level groups.",
++            anim_select_anchor: "Select the enclosing group",
++            anim_no_rows: "No animation on this element",
++            anim_add_effect: "Add effect",
++            anim_remove_effect: "Remove",
++            anim_cat_entrance: "Entrance",
++            anim_cat_emphasis: "Emphasis",
++            anim_cat_path: "Motion path",
++            anim_cat_exit: "Exit",
++            anim_effect: "Effect",
++            anim_duration: "Duration (s)",
++            anim_delay: "Delay (s)",
++            anim_order: "Order",
++            anim_option_direction: "Direction",
++            anim_option_amount: "Amount",
++            anim_option_size: "Size (%)",
++            anim_option_color: "Color",
++            anim_option_relative: "Relative to the shape",
++            anim_option_font_name: "Font",
++            anim_play_element: "Play this element",
++            anim_play_slide: "Play this page",
++            anim_stop: "Stop",
++            anim_order_list: "Play order on this page",
++            anim_move_up: "Earlier",
++            anim_move_down: "Later",
++            anim_save: "Save animation",
++            anim_saved: "Animation saved to animations.json",
++            anim_save_failed: "Save failed: ",
++            anim_unsaved: "Unsaved animation changes",
++            anim_curated_note: "{curated} of {total} PowerPoint {category} effects — the ones that read well in a deck.",
++            anim_preview_note: "Browser preview approximates the PowerPoint effect; the exported .pptx carries the native one.",
++            anim_unavailable: "Animation editing is unavailable in this installation.",
++            anim_no_groups: "This page has no animatable top-level groups."
+         },
+         ja: {
+             page_title: "PPT Master - ライブプレビュー",
+@@ -155,7 +194,46 @@
+             nav_next: "次のスライド (→)",
+             nav_last: "最後のスライド (End)",
+             nav_counter: "{current} / {total}",
+-            nav_empty: "— / —"
++            nav_empty: "— / —",
++            panel_animation: "アニメーション",
++            anim_deck_preset: "デッキプリセット",
++            anim_preset_none: "設定しない（エンジン既定）",
++            anim_apply_preset: "デッキ全体に適用",
++            anim_apply_preset_confirm: "このプリセットを全ページに適用しますか。現在の要素ごとの設定は置き換えられます。",
++            anim_anchor_label: "アニメーション対象",
++            anim_not_anchor: "この要素はアニメーション対象ではありません。PowerPoint は最上位グループ単位で動かします。",
++            anim_select_anchor: "囲んでいるグループを選択",
++            anim_no_rows: "この要素にアニメーションはありません",
++            anim_add_effect: "効果を追加",
++            anim_remove_effect: "削除",
++            anim_cat_entrance: "開始",
++            anim_cat_emphasis: "強調",
++            anim_cat_path: "軌跡",
++            anim_cat_exit: "終了",
++            anim_effect: "効果",
++            anim_duration: "継続時間（秒）",
++            anim_delay: "遅延（秒）",
++            anim_order: "順序",
++            anim_option_direction: "方向",
++            anim_option_amount: "量",
++            anim_option_size: "サイズ（%）",
++            anim_option_color: "色",
++            anim_option_relative: "図形基準",
++            anim_option_font_name: "フォント",
++            anim_play_element: "この要素を再生",
++            anim_play_slide: "このページを再生",
++            anim_stop: "停止",
++            anim_order_list: "このページの再生順",
++            anim_move_up: "前へ",
++            anim_move_down: "後へ",
++            anim_save: "アニメーションを保存",
++            anim_saved: "animations.json に保存しました",
++            anim_save_failed: "保存に失敗しました: ",
++            anim_unsaved: "未保存のアニメーション変更があります",
++            anim_curated_note: "PowerPoint の{category}効果 {total} 種類のうち、資料で使いやすい {curated} 種類。",
++            anim_preview_note: "ブラウザのプレビューは PowerPoint 効果の近似です。書き出した .pptx はネイティブ効果を持ちます。",
++            anim_unavailable: "この環境ではアニメーション編集を利用できません。",
++            anim_no_groups: "このページには対象となる最上位グループがありません。"
+         },
+         zh: {
+             page_title: "PPT Master - 实时预览",
+@@ -230,7 +308,46 @@
+             nav_next: "下一页 (→)",
+             nav_last: "末页 (End)",
+             nav_counter: "{current} / {total}",
+-            nav_empty: "— / —"
++            nav_empty: "— / —",
++            panel_animation: "动画",
++            anim_deck_preset: "整份套组",
++            anim_preset_none: "不设定（引擎默认）",
++            anim_apply_preset: "套用到整份",
++            anim_apply_preset_confirm: "要把这个套组套用到每一页吗？会覆盖目前的元素动画设定。",
++            anim_anchor_label: "动画对象",
++            anim_not_anchor: "这个元素不是动画对象。PowerPoint 以最上层群组为单位播放动画。",
++            anim_select_anchor: "选取所属群组",
++            anim_no_rows: "这个元素没有动画",
++            anim_add_effect: "新增效果",
++            anim_remove_effect: "移除",
++            anim_cat_entrance: "进场",
++            anim_cat_emphasis: "强调",
++            anim_cat_path: "路径",
++            anim_cat_exit: "退场",
++            anim_effect: "效果",
++            anim_duration: "时长（秒）",
++            anim_delay: "延迟（秒）",
++            anim_order: "顺序",
++            anim_option_direction: "方向",
++            anim_option_amount: "幅度",
++            anim_option_size: "大小（%）",
++            anim_option_color: "颜色",
++            anim_option_relative: "相对图形",
++            anim_option_font_name: "字体",
++            anim_play_element: "播放这个元素",
++            anim_play_slide: "播放整页",
++            anim_stop: "停止",
++            anim_order_list: "本页播放顺序",
++            anim_move_up: "往前",
++            anim_move_down: "往后",
++            anim_save: "保存动画",
++            anim_saved: "动画已写入 animations.json",
++            anim_save_failed: "保存失败：",
++            anim_unsaved: "有尚未保存的动画变更",
++            anim_curated_note: "PowerPoint {total} 个{category}效果中，挑出简报里读得顺的 {curated} 个。",
++            anim_preview_note: "浏览器预览是 PowerPoint 效果的近似；导出的 .pptx 带的是原生效果。",
++            anim_unavailable: "此安装环境无法编辑动画。",
++            anim_no_groups: "这一页没有可加动画的最上层群组。"
+         },
+         "zh-TW": {
+             page_title: "PPT Master - 即時預覽",
+@@ -305,7 +422,46 @@
+             nav_next: "下一頁 (→)",
+             nav_last: "末頁 (End)",
+             nav_counter: "{current} / {total}",
+-            nav_empty: "— / —"
++            nav_empty: "— / —",
++            panel_animation: "動畫",
++            anim_deck_preset: "整份套組",
++            anim_preset_none: "不設定（引擎預設）",
++            anim_apply_preset: "套用到整份",
++            anim_apply_preset_confirm: "要把這個套組套用到每一頁嗎？會覆蓋目前的元素動畫設定。",
++            anim_anchor_label: "動畫對象",
++            anim_not_anchor: "這個元素不是動畫對象。PowerPoint 以最上層群組為單位播放動畫。",
++            anim_select_anchor: "選取所屬群組",
++            anim_no_rows: "這個元素沒有動畫",
++            anim_add_effect: "新增效果",
++            anim_remove_effect: "移除",
++            anim_cat_entrance: "進場",
++            anim_cat_emphasis: "強調",
++            anim_cat_path: "路徑",
++            anim_cat_exit: "退場",
++            anim_effect: "效果",
++            anim_duration: "時長（秒）",
++            anim_delay: "延遲（秒）",
++            anim_order: "順序",
++            anim_option_direction: "方向",
++            anim_option_amount: "幅度",
++            anim_option_size: "大小（%）",
++            anim_option_color: "顏色",
++            anim_option_relative: "相對圖形",
++            anim_option_font_name: "字型",
++            anim_play_element: "播放這個元素",
++            anim_play_slide: "播放整頁",
++            anim_stop: "停止",
++            anim_order_list: "本頁播放順序",
++            anim_move_up: "往前",
++            anim_move_down: "往後",
++            anim_save: "儲存動畫",
++            anim_saved: "動畫已寫入 animations.json",
++            anim_save_failed: "儲存失敗：",
++            anim_unsaved: "有尚未儲存的動畫變更",
++            anim_curated_note: "PowerPoint {total} 個{category}效果中，挑出簡報裡讀得順的 {curated} 個。",
++            anim_preview_note: "瀏覽器預覽是 PowerPoint 效果的近似；匯出的 .pptx 帶的是原生效果。",
++            anim_unavailable: "此安裝環境無法編輯動畫。",
++            anim_no_groups: "這一頁沒有可加動畫的最上層群組。"
+         }
+     };
+ 
+@@ -377,6 +533,7 @@
+         updateUndoButton();
+         updatePendingStatus();
+         initAnnotationQuickActions();
++        animRenderPanel();
+         loadSlides();
+     }
+ 
+@@ -708,6 +865,7 @@
+         currentSlide = name;
+         waitingForSlide = null;
+         rememberSlideInLocation(name);
++        animStopAll();
+         selectedElementIds.clear();
+         slideAnnotations = {};
+         updateNavLabel();
+@@ -920,6 +1078,7 @@
+             annotationText.value = "";
+             propsEl.style.display = "none";
+             propsEl.innerHTML = "";
++            animRenderPanel();
+             return;
+         }
+ 
+@@ -951,6 +1110,7 @@
+         annotationText.value = count === 1
+             ? (slideAnnotations[selectedElementIds.values().next().value] || "")
+             : "";
++        animRenderPanel();
+     }
+ 
+     // ---- Rubber band selection ----
+@@ -3103,9 +3263,833 @@
+         });
+     }
+ 
++    // ================================================================
++    //  shiftdeck — element-level animation editing + single-element preview
++    // ================================================================
++    // Why this exists: PowerPoint can only show an object animation by playing
++    // the whole slide. Here one click replays one element, so choosing an
++    // effect is a half-second loop instead of an export round-trip. The
++    // playback is a browser approximation; the exported .pptx always carries
++    // the native PowerPoint preset the sidecar names.
++    var ANIM = {
++        available: false,
++        config: null,       // live animations.json object (or null)
++        menu: null,         // curated effect menu built from the engine registry
++        groups: {},         // {slide_stem: [group id, ...]}
++        presets: [],
++        preset: null,
++        dirty: false,
++        running: []         // Animation objects currently playing
++    };
++    var animPanelEl = document.getElementById("animation-panel");
++
++    var ANIM_CSS = [
++        "#animation-panel{border-top:1px solid rgba(128,128,128,.25);padding:10px 0 4px;margin-top:8px}",
++        ".anim-block{margin-bottom:10px}",
++        ".anim-note{font-size:11px;opacity:.65;line-height:1.5;margin:4px 0}",
++        ".anim-row{border:1px solid rgba(128,128,128,.28);border-radius:6px;padding:6px;margin-bottom:6px}",
++        ".anim-line{display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap}",
++        ".anim-line label{font-size:11px;opacity:.7;min-width:auto}",
++        ".anim-row select,.anim-row input{font:inherit;font-size:12px;padding:2px 4px;min-width:0}",
++        ".anim-row select{flex:1 1 90px}",
++        ".anim-num{width:56px}",
++        ".anim-btn{font:inherit;font-size:12px;padding:3px 8px;cursor:pointer;border-radius:5px;",
++        "border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit}",
++        ".anim-btn:hover{background:rgba(128,128,128,.15)}",
++        ".anim-btn.primary{border-color:#3b82f6;color:#3b82f6;font-weight:600}",
++        ".anim-btn.play{border-color:#16a34a;color:#16a34a}",
++        ".anim-btn.danger{border-color:#dc2626;color:#dc2626}",
++        ".anim-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}",
++        ".anim-status{font-size:11px;opacity:.8}",
++        ".anim-status.err{color:#dc2626;opacity:1}",
++        ".anim-order-item{display:flex;gap:4px;align-items:center;font-size:12px;padding:2px 0}",
++        ".anim-order-item .oid{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
++        ".anim-order-item.current .oid{font-weight:700}",
++        ".anim-anchor{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:600}"
++    ].join("");
++
++    (function injectAnimCss() {
++        var style = document.createElement("style");
++        style.textContent = ANIM_CSS;
++        document.head.appendChild(style);
++    })();
++
++    function animSlideStem() {
++        return currentSlide ? String(currentSlide).replace(/\.svg$/i, "") : null;
++    }
++
++    function animSlideGroups() {
++        var stem = animSlideStem();
++        return (stem && ANIM.groups[stem]) || [];
++    }
++
++    function animEnsureConfig() {
++        if (!ANIM.config || typeof ANIM.config !== "object") ANIM.config = { version: 1 };
++        if (!ANIM.config.slides || typeof ANIM.config.slides !== "object") ANIM.config.slides = {};
++        return ANIM.config;
++    }
++
++    // A group block is either the legacy single-effect object or {effects:[...]}.
++    // The editor always reads and writes the array form.
++    function animRowsFor(groupId) {
++        var stem = animSlideStem();
++        var slide = ANIM.config && ANIM.config.slides && ANIM.config.slides[stem];
++        var block = slide && slide.groups && slide.groups[groupId];
++        if (!block) return [];
++        if (Array.isArray(block.effects)) return block.effects;
++        if (block.effect) {
++            var legacy = {};
++            Object.keys(block).forEach(function (k) { legacy[k] = block[k]; });
++            return [legacy];
++        }
++        return [];
++    }
++
++    function animWriteRows(groupId, rows) {
++        var stem = animSlideStem();
++        if (!stem) return;
++        var config = animEnsureConfig();
++        var slide = config.slides[stem];
++        if (rows && rows.length) {
++            if (!slide) slide = config.slides[stem] = {};
++            if (!slide.groups) slide.groups = {};
++            slide.groups[groupId] = { effects: rows };
++        } else if (slide && slide.groups) {
++            delete slide.groups[groupId];
++            if (!Object.keys(slide.groups).length) delete slide.groups;
++        }
++        if (slide && !Object.keys(slide).length) delete config.slides[stem];
++        if (!Object.keys(config.slides).length) delete config.slides;
++        ANIM.dirty = true;
++    }
++
++    function animEffectMeta(key) {
++        if (!ANIM.menu) return null;
++        var found = null;
++        ANIM.menu.categories.forEach(function (cat) {
++            cat.effects.forEach(function (item) { if (item.key === key) found = item; });
++        });
++        return found;
++    }
++
++    function animCategoryOf(key) {
++        var meta = animEffectMeta(key);
++        if (meta) return meta.category;
++        return String(key || "").split("_")[0] || "entrance";
++    }
++
++    function animEffectLabel(key) {
++        var meta = animEffectMeta(key);
++        if (!meta) return key;
++        return meta["label_" + (LANG === "zh-TW" ? "zh_tw" : LANG)] || meta.label_en || meta.name || key;
++    }
++
++    function animOptionValueLabel(option, value) {
++        var table = ANIM.menu && ANIM.menu.option_labels && ANIM.menu.option_labels[option];
++        var entry = table && table[value];
++        if (!entry) return String(value);
++        return entry[LANG === "zh-TW" ? "zh_tw" : LANG] || entry.en || String(value);
++    }
++
++    // ---- preview engine ------------------------------------------------
++    function animStopAll() {
++        ANIM.running.forEach(function (item) {
++            try { item.anim.cancel(); } catch (e) { /* already gone */ }
++            animResetStyles(item.el);
++        });
++        ANIM.running = [];
++    }
++
++    function animResetStyles(el) {
++        if (!el) return;
++        ["transform", "opacity", "clipPath", "filter", "transformBox", "transformOrigin"].forEach(
++            function (prop) { el.style[prop] = ""; }
++        );
++    }
++
++    function animCanvas() {
++        var svg = svgContent.querySelector("svg");
++        var vb = svg && (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/);
++        var w = vb && Number(vb[2]);
++        var h = vb && Number(vb[3]);
++        return {
++            w: isFinite(w) && w > 0 ? w : 1280,
++            h: isFinite(h) && h > 0 ? h : 720
++        };
++    }
++
++    function animSampled(points) {
++        return points.map(function (p) { return { transform: "translate(" + p[0] + "px," + p[1] + "px)" }; });
++    }
++
++    function animPathPoints(effect, dx, dy) {
++        var steps = 24;
++        var points = [];
++        var i, t;
++        for (i = 0; i <= steps; i += 1) {
++            t = i / steps;
++            if (effect === "path_arc_up") {
++                points.push([dx * Math.sin(t * Math.PI / 2), -dy * (1 - Math.cos(t * Math.PI / 2))]);
++            } else if (effect === "path_circle") {
++                points.push([dy * Math.sin(2 * Math.PI * t), -dy * (1 - Math.cos(2 * Math.PI * t))]);
++            } else if (effect === "path_s_curve1") {
++                points.push([dx * t, -dy * 0.55 * Math.sin(2 * Math.PI * t)]);
++            } else if (effect === "path_zigzag") {
++                points.push([dx * t, dy * 0.4 * (Math.abs(((t * 4) % 2) - 1) * 2 - 1)]);
++            } else {
++                points.push([dx * t, dy * t]);
++            }
++        }
++        return animSampled(points);
++    }
++
++    // Returns {frames, easing, hold} for one effect row, or null when the
++    // effect has no meaningful browser approximation.
++    function animRecipe(effect, options) {
++        var opts = options || {};
++        var canvas = animCanvas();
++        var W = canvas.w;
++        var H = canvas.h;
++        var dir = opts.direction;
++        var fade0 = { opacity: 0 };
++        var fade1 = { opacity: 1 };
++        var edge = {
++            up: [0, -H], right: [W, 0], down: [0, H], left: [-W, 0],
++            up_left: [-W, -H], up_right: [W, -H],
++            down_right: [W, H], down_left: [-W, H]
++        };
++        var wipeFrom = {
++            down: "inset(0 0 100% 0)", up: "inset(100% 0 0 0)",
++            right: "inset(0 100% 0 0)", left: "inset(0 0 0 100%)"
++        };
++        var zoomScale = {
++            "in": 0.02, out: 2.6, in_slightly: 0.667, out_slightly: 1.333,
++            in_center: 0.02, out_bottom: 2.6, in_bottom: 2.6, out_center: 0.02
++        };
++        var splitAxis = String(dir || "vertical_in").indexOf("horizontal") === 0
++            ? "inset(50% 0 50% 0)" : "inset(0 50% 0 50%)";
++        var offset, scale;
++
++        switch (effect) {
++        case "entrance_fade":
++        case "entrance_dissolve":
++            return { frames: [fade0, fade1] };
++        case "exit_fade":
++        case "exit_dissolve":
++            return { frames: [fade1, fade0], hold: true };
++        case "entrance_appear":
++            return { frames: [{ opacity: 0, offset: 0 }, { opacity: 0, offset: 0.98 }, fade1], min: 320 };
++        case "exit_appear":
++            return { frames: [{ opacity: 1, offset: 0 }, { opacity: 1, offset: 0.98 }, fade0], min: 320, hold: true };
++        case "entrance_fly":
++            offset = edge[dir] || edge.down;
++            return {
++                frames: [
++                    { transform: "translate(" + offset[0] + "px," + offset[1] + "px)" },
++                    { transform: "translate(0,0)" }
++                ],
++                easing: "cubic-bezier(.2,.7,.3,1)"
++            };
++        case "exit_fly":
++            offset = edge[dir] || edge.down;
++            return {
++                frames: [
++                    { transform: "translate(0,0)" },
++                    { transform: "translate(" + offset[0] + "px," + offset[1] + "px)" }
++                ],
++                easing: "cubic-bezier(.7,.1,.9,.5)", hold: true
++            };
++        case "entrance_wipe":
++            return { frames: [{ clipPath: wipeFrom[dir] || wipeFrom.down }, { clipPath: "inset(0)" }] };
++        case "exit_wipe":
++            return {
++                frames: [{ clipPath: "inset(0)" }, { clipPath: wipeFrom[dir] || wipeFrom.down }],
++                hold: true
++            };
++        case "entrance_split":
++            return { frames: [{ clipPath: splitAxis }, { clipPath: "inset(0)" }] };
++        case "exit_split":
++            return { frames: [{ clipPath: "inset(0)" }, { clipPath: splitAxis }], hold: true };
++        case "entrance_zoom":
++            scale = zoomScale[dir] || zoomScale["in"];
++            offset = dir === "in_center" ? "translate(0,0) " : (dir === "out_bottom" ? "translate(0," + (H * 0.3) + "px) " : "");
++            return {
++                frames: [
++                    { transform: offset + "scale(" + scale + ")", opacity: 0 },
++                    { transform: "scale(1)", opacity: 1 }
++                ],
++                origin: true, easing: "cubic-bezier(.2,.7,.3,1)"
++            };
++        case "exit_zoom":
++            scale = zoomScale[dir] || zoomScale["in"];
++            return {
++                frames: [
++                    { transform: "scale(1)", opacity: 1 },
++                    { transform: "scale(" + scale + ")", opacity: 0 }
++                ],
++                origin: true, hold: true
++            };
++        case "entrance_float":
++            return {
++                frames: [
++                    { transform: "translate(0," + (H * 0.06) + "px)", opacity: 0 },
++                    { transform: "translate(0,0)", opacity: 1 }
++                ],
++                easing: "cubic-bezier(.2,.7,.3,1)"
++            };
++        case "exit_float":
++            return {
++                frames: [
++                    { transform: "translate(0,0)", opacity: 1 },
++                    { transform: "translate(0," + (-H * 0.06) + "px)", opacity: 0 }
++                ],
++                hold: true
++            };
++        case "entrance_grow_and_turn":
++            return {
++                frames: [
++                    { transform: "scale(0) rotate(-180deg)", opacity: 0 },
++                    { transform: "scale(1) rotate(0deg)", opacity: 1 }
++                ],
++                origin: true
++            };
++        case "emphasis_grow_shrink":
++            scale = Number(opts.size);
++            if (!isFinite(scale) || scale <= 0 || scale === 100) scale = 150;
++            scale = scale / 100;
++            return {
++                frames: [
++                    { transform: "scale(1)" },
++                    { transform: "scale(" + scale + ")", offset: 0.5 },
++                    { transform: "scale(1)" }
++                ],
++                origin: true
++            };
++        case "emphasis_vertical_grow":
++            return {
++                frames: [
++                    { transform: "scaleY(1)" },
++                    { transform: "scaleY(1.4)", offset: 0.5 },
++                    { transform: "scaleY(1)" }
++                ],
++                origin: true
++            };
++        case "emphasis_spin":
++            scale = Number(opts.amount);
++            if (!isFinite(scale) || scale === 0) scale = 360;
++            return {
++                frames: [{ transform: "rotate(0deg)" }, { transform: "rotate(" + scale + "deg)" }],
++                origin: true
++            };
++        case "emphasis_teeter":
++            return {
++                frames: [
++                    { transform: "rotate(0deg)" }, { transform: "rotate(-6deg)" },
++                    { transform: "rotate(6deg)" }, { transform: "rotate(-6deg)" },
++                    { transform: "rotate(0deg)" }
++                ],
++                origin: true
++            };
++        case "emphasis_transparency":
++            scale = Number(opts.amount);
++            if (!isFinite(scale) || scale <= 0 || scale > 1) scale = 0.5;
++            return {
++                frames: [{ opacity: 1 }, { opacity: 1 - scale, offset: 0.5 }, { opacity: 1 }]
++            };
++        case "emphasis_flash_bulb":
++            return {
++                frames: [
++                    { filter: "brightness(1)" }, { filter: "brightness(2.6)", offset: 0.25 },
++                    { filter: "brightness(1)", offset: 0.5 },
++                    { filter: "brightness(2.6)", offset: 0.75 }, { filter: "brightness(1)" }
++                ]
++            };
++        case "emphasis_bold_flash":
++            return {
++                frames: [
++                    { transform: "scale(1)", filter: "brightness(1)" },
++                    { transform: "scale(1.06)", filter: "brightness(1.5)", offset: 0.5 },
++                    { transform: "scale(1)", filter: "brightness(1)" }
++                ],
++                origin: true
++            };
++        case "emphasis_wave":
++            return {
++                frames: [
++                    { transform: "translate(0,0)" }, { transform: "translate(0,-10px)" },
++                    { transform: "translate(0,10px)" }, { transform: "translate(0,-6px)" },
++                    { transform: "translate(0,0)" }
++                ]
++            };
++        default:
++            break;
++        }
++        if (effect.indexOf("path_") === 0) {
++            var dx = W * 0.25;
++            var dy = H * 0.25;
++            if (effect === "path_left") return { frames: animPathPoints(effect, -dx, 0), hold: true };
++            if (effect === "path_right") return { frames: animPathPoints(effect, dx, 0), hold: true };
++            if (effect === "path_up") return { frames: animPathPoints(effect, 0, -dy), hold: true };
++            if (effect === "path_down") return { frames: animPathPoints(effect, 0, dy), hold: true };
++            return { frames: animPathPoints(effect, dx, dy), hold: true };
++        }
++        return { frames: [fade0, fade1] };
++    }
++
++    function animRowDuration(row) {
++        var value = Number(row && row.duration);
++        if (isFinite(value) && value > 0) return value * 1000;
++        var meta = animEffectMeta(row && row.effect);
++        return meta ? Math.round(meta.default_duration * 1000) : 500;
++    }
++
++    // The differentiator: replay ONE element without playing the page.
++    function animPlayRow(groupId, row, startDelayMs) {
++        var el = svgContent.querySelector("#" + CSS.escape(groupId));
++        if (!el || !el.animate) return 0;
++        var recipe = animRecipe(row.effect, row.effect_options);
++        if (!recipe) return 0;
++        var duration = Math.max(animRowDuration(row), recipe.min || 0);
++        var delay = (Number(row.delay) > 0 ? Number(row.delay) * 1000 : 0) + (startDelayMs || 0);
++        el.style.transformBox = "fill-box";
++        el.style.transformOrigin = recipe.origin === false ? "0 0" : "50% 50%";
++        var anim = el.animate(recipe.frames, {
++            duration: duration,
++            delay: delay,
++            easing: recipe.easing || "ease-out",
++            fill: "both"
++        });
++        ANIM.running.push({ anim: anim, el: el });
++        anim.onfinish = function () {
++            // Motion paths and exits legitimately end away from home; hold the
++            // end state briefly so the user sees it, then restore the preview.
++            window.setTimeout(function () {
++                try { anim.cancel(); } catch (e) { /* already cancelled */ }
++                animResetStyles(el);
++            }, recipe.hold ? 700 : 0);
++        };
++        return delay + duration;
++    }
++
++    function animSlideSequence() {
++        var stem = animSlideStem();
++        var slide = ANIM.config && ANIM.config.slides && ANIM.config.slides[stem];
++        if (!slide || !slide.groups) return [];
++        var groupOrder = animSlideGroups();
++        var sequence = [];
++        Object.keys(slide.groups).forEach(function (groupId) {
++            animRowsFor(groupId).forEach(function (row, index) {
++                sequence.push({
++                    groupId: groupId,
++                    row: row,
++                    order: Number(row.order) > 0 ? Number(row.order) : 9999,
++                    groupIndex: groupOrder.indexOf(groupId),
++                    index: index
++                });
++            });
++        });
++        sequence.sort(function (a, b) {
++            return (a.order - b.order) || (a.groupIndex - b.groupIndex) || (a.index - b.index);
++        });
++        return sequence;
++    }
++
++    function animDefaultStagger() {
++        var defaults = ANIM.config && ANIM.config.defaults && ANIM.config.defaults.animation;
++        var value = defaults && Number(defaults.stagger);
++        return isFinite(value) && value >= 0 ? value * 1000 : 300;
++    }
++
++    function animPlaySlide() {
++        animStopAll();
++        var stagger = animDefaultStagger();
++        var cursor = 0;
++        animSlideSequence().forEach(function (item) {
++            var trigger = item.row.trigger ||
++                (ANIM.config.defaults && ANIM.config.defaults.animation &&
++                    ANIM.config.defaults.animation.trigger) || "after-previous";
++            var start = trigger === "with-previous" ? Math.max(cursor - animRowDuration(item.row), 0) : cursor;
++            var end = animPlayRow(item.groupId, item.row, start);
++            cursor = Math.max(cursor, end + (trigger === "with-previous" ? 0 : stagger));
++        });
++    }
++
++    // ---- panel rendering -----------------------------------------------
++    function animEl(tag, cls, text) {
++        var node = document.createElement(tag);
++        if (cls) node.className = cls;
++        if (text != null) node.textContent = text;
++        return node;
++    }
++
++    function animButton(cls, label, onClick) {
++        var button = animEl("button", "anim-btn " + (cls || ""), label);
++        button.type = "button";
++        button.addEventListener("click", onClick);
++        return button;
++    }
++
++    function animSetStatus(text, isError) {
++        var status = animPanelEl.querySelector(".anim-status");
++        if (!status) return;
++        status.textContent = text || "";
++        status.classList.toggle("err", !!isError);
++    }
++
++    function animSelectedAnchor() {
++        if (selectedElementIds.size !== 1) return null;
++        var id = selectedElementIds.values().next().value;
++        return animSlideGroups().indexOf(id) >= 0 ? id : null;
++    }
++
++    function animEnclosingAnchor() {
++        if (selectedElementIds.size !== 1) return null;
++        var id = selectedElementIds.values().next().value;
++        var el = svgContent.querySelector("#" + CSS.escape(id));
++        var groups = animSlideGroups();
++        while (el && el.parentNode) {
++            el = el.parentNode;
++            if (el.id && groups.indexOf(el.id) >= 0) return el.id;
++        }
++        return null;
++    }
++
++    function animOptionControl(row, name, spec, onChange) {
++        var line = animEl("div", "anim-line");
++        var labelKey = "anim_option_" + name;
++        line.appendChild(animEl("label", null, t(labelKey) === labelKey ? name : t(labelKey)));
++        var input;
++        if (spec.type === "enum") {
++            input = animEl("select");
++            // The engine describes enum values as an ordered array; tolerate a
++            // keyed object too so a future registry shape does not break this.
++            var values = Array.isArray(spec.values)
++                ? spec.values : Object.keys(spec.values || {});
++            values.forEach(function (value) {
++                var option = animEl("option", null, animOptionValueLabel(name, value));
++                option.value = value;
++                input.appendChild(option);
++            });
++            input.value = row.effect_options && row.effect_options[name] != null
++                ? row.effect_options[name] : spec["default"];
++        } else if (spec.type === "boolean") {
++            input = animEl("input");
++            input.type = "checkbox";
++            input.checked = row.effect_options && row.effect_options[name] != null
++                ? !!row.effect_options[name] : !!spec["default"];
++        } else {
++            input = animEl("input", "anim-num");
++            input.type = "number";
++            input.step = "any";
++            input.value = row.effect_options && row.effect_options[name] != null
++                ? row.effect_options[name] : spec["default"];
++        }
++        input.addEventListener("change", function () {
++            if (!row.effect_options) row.effect_options = {};
++            if (spec.type === "boolean") row.effect_options[name] = input.checked;
++            else if (spec.type === "number") row.effect_options[name] = Number(input.value);
++            else row.effect_options[name] = input.value;
++            onChange();
++        });
++        line.appendChild(input);
++        return line;
++    }
++
++    function animNumberInput(row, field, step, onChange) {
++        var input = animEl("input", "anim-num");
++        input.type = "number";
++        input.min = "0";
++        input.step = String(step);
++        input.value = row[field] != null ? row[field] : "";
++        input.addEventListener("change", function () {
++            var value = Number(input.value);
++            if (input.value === "" || !isFinite(value)) delete row[field];
++            else row[field] = field === "order" ? Math.max(1, Math.round(value)) : value;
++            onChange();
++        });
++        return input;
++    }
++
++    function animRenderRow(groupId, rows, index, rerender) {
++        var row = rows[index];
++        var wrap = animEl("div", "anim-row");
++
++        var head = animEl("div", "anim-line");
++        var category = animEl("select");
++        ["entrance", "emphasis", "path", "exit"].forEach(function (id) {
++            var option = animEl("option", null, t("anim_cat_" + id));
++            option.value = id;
++            category.appendChild(option);
++        });
++        category.value = animCategoryOf(row.effect);
++        var effect = animEl("select");
++        function fillEffects() {
++            effect.innerHTML = "";
++            (ANIM.menu.categories.filter(function (cat) {
++                return cat.id === category.value;
++            })[0] || { effects: [] }).effects.forEach(function (item) {
++                var option = animEl("option", null, animEffectLabel(item.key));
++                option.value = item.key;
++                effect.appendChild(option);
++            });
++            if (animCategoryOf(row.effect) === category.value) effect.value = row.effect;
++        }
++        fillEffects();
++        category.addEventListener("change", function () {
++            fillEffects();
++            applyEffect(effect.value);
++        });
++        function applyEffect(key) {
++            row.effect = key;
++            var seed = (ANIM.menu.seed_options || {})[key];
++            row.effect_options = seed ? JSON.parse(JSON.stringify(seed)) : undefined;
++            if (!row.effect_options) delete row.effect_options;
++            animWriteRows(groupId, rows);
++            rerender();
++        }
++        effect.addEventListener("change", function () { applyEffect(effect.value); });
++        head.appendChild(category);
++        head.appendChild(effect);
++        head.appendChild(animButton("play", "▶", function () {
++            animStopAll();
++            animPlayRow(groupId, row, 0);
++        }));
++        head.appendChild(animButton("danger", "✕", function () {
++            rows.splice(index, 1);
++            animWriteRows(groupId, rows);
++            rerender();
++        }));
++        wrap.appendChild(head);
++
++        var meta = animEffectMeta(row.effect);
++        var specs = (meta && meta.options) || {};
++        Object.keys(specs).forEach(function (name) {
++            wrap.appendChild(animOptionControl(row, name, specs[name], function () {
++                animWriteRows(groupId, rows);
++                animStopAll();
++                animPlayRow(groupId, row, 0);
++                animRefreshDirty();
++            }));
++        });
++
++        var timing = animEl("div", "anim-line");
++        timing.appendChild(animEl("label", null, t("anim_duration")));
++        timing.appendChild(animNumberInput(row, "duration", 0.05, function () {
++            animWriteRows(groupId, rows);
++            animRefreshDirty();
++        }));
++        timing.appendChild(animEl("label", null, t("anim_delay")));
++        timing.appendChild(animNumberInput(row, "delay", 0.05, function () {
++            animWriteRows(groupId, rows);
++            animRefreshDirty();
++        }));
++        timing.appendChild(animEl("label", null, t("anim_order")));
++        timing.appendChild(animNumberInput(row, "order", 1, function () {
++            animWriteRows(groupId, rows);
++            rerender();
++        }));
++        wrap.appendChild(timing);
++        return wrap;
++    }
++
++    function animRefreshDirty() {
++        var indicator = animPanelEl.querySelector(".anim-dirty");
++        if (indicator) indicator.textContent = ANIM.dirty ? t("anim_unsaved") : "";
++    }
++
++    function animNextOrder() {
++        var max = 0;
++        animSlideSequence().forEach(function (item) {
++            if (item.order < 9999) max = Math.max(max, item.order);
++        });
++        return max + 1;
++    }
++
++    function animRenderOrderList(host, currentGroup) {
++        var sequence = animSlideSequence();
++        if (!sequence.length) return;
++        var block = animEl("div", "anim-block");
++        block.appendChild(animEl("div", "section-label", t("anim_order_list")));
++        sequence.forEach(function (item, position) {
++            var line = animEl("div", "anim-order-item" +
++                (item.groupId === currentGroup ? " current" : ""));
++            line.appendChild(animEl("span", "oid",
++                (position + 1) + ". " + item.groupId + " · " + animEffectLabel(item.row.effect)));
++            line.appendChild(animButton("", "▲", function () { animMove(sequence, position, -1); }));
++            line.appendChild(animButton("", "▼", function () { animMove(sequence, position, 1); }));
++            line.appendChild(animButton("play", "▶", function () {
++                animStopAll();
++                animPlayRow(item.groupId, item.row, 0);
++            }));
++            block.appendChild(line);
++        });
++        host.appendChild(block);
++    }
++
++    // Renumber every row on the page from the displayed sequence so "earlier /
++    // later" is exact rather than relative to whatever order values exist.
++    function animMove(sequence, position, delta) {
++        var target = position + delta;
++        if (target < 0 || target >= sequence.length) return;
++        var reordered = sequence.slice();
++        var moved = reordered.splice(position, 1)[0];
++        reordered.splice(target, 0, moved);
++        reordered.forEach(function (item, index) { item.row.order = index + 1; });
++        ANIM.dirty = true;
++        animRenderPanel();
++    }
++
++    function animRenderDeckPreset(host) {
++        var block = animEl("div", "anim-block");
++        var line = animEl("div", "anim-line");
++        line.appendChild(animEl("label", null, t("anim_deck_preset")));
++        var select = animEl("select");
++        var none = animEl("option", null, t("anim_preset_none"));
++        none.value = "none";
++        select.appendChild(none);
++        ANIM.presets.forEach(function (preset) {
++            var option = animEl("option", null,
++                preset["label_" + (LANG === "zh-TW" ? "zh_tw" : LANG)] || preset.label_en || preset.id);
++            option.value = preset.id;
++            select.appendChild(option);
++        });
++        select.value = ANIM.preset || "none";
++        line.appendChild(select);
++        line.appendChild(animButton("", t("anim_apply_preset"), function () {
++            if (!window.confirm(t("anim_apply_preset_confirm"))) return;
++            fetch("/api/animations/preset", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify({ preset: select.value })
++            }).then(function (res) { return res.json(); }).then(function (data) {
++                if (data.error) { animSetStatus(data.error, true); return; }
++                ANIM.config = data.config;
++                ANIM.preset = select.value === "none" ? null : select.value;
++                ANIM.dirty = false;
++                animRenderPanel();
++                animSetStatus(t("anim_saved"));
++            }).catch(function (err) { animSetStatus(String(err && err.message), true); });
++        }));
++        block.appendChild(line);
++        host.appendChild(block);
++    }
++
++    function animRenderPanel() {
++        if (!animPanelEl) return;
++        if (!ANIM.available || !currentSlide) {
++            animPanelEl.style.display = "none";
++            return;
++        }
++        animPanelEl.style.display = "block";
++        animPanelEl.innerHTML = "";
++        animPanelEl.appendChild(animEl("div", "section-label", t("panel_animation")));
++
++        if (!animSlideGroups().length) {
++            animPanelEl.appendChild(animEl("div", "anim-note", t("anim_no_groups")));
++            return;
++        }
++        animRenderDeckPreset(animPanelEl);
++
++        var anchor = animSelectedAnchor();
++        var block = animEl("div", "anim-block");
++        if (anchor) {
++            var head = animEl("div", "anim-line");
++            head.appendChild(animEl("span", "anim-anchor", "#" + anchor));
++            block.appendChild(head);
++            var rows = animRowsFor(anchor).slice();
++            if (!rows.length) block.appendChild(animEl("div", "anim-note", t("anim_no_rows")));
++            rows.forEach(function (_row, index) {
++                block.appendChild(animRenderRow(anchor, rows, index, animRenderPanel));
++            });
++            var actions = animEl("div", "anim-actions");
++            actions.appendChild(animButton("", "+ " + t("anim_add_effect"), function () {
++                var seed = (ANIM.menu.seed_options || {}).entrance_fade;
++                var row = { effect: "entrance_fade", order: animNextOrder() };
++                if (seed) row.effect_options = JSON.parse(JSON.stringify(seed));
++                rows.push(row);
++                animWriteRows(anchor, rows);
++                animRenderPanel();
++            }));
++            if (rows.length) {
++                actions.appendChild(animButton("play", "▶ " + t("anim_play_element"), function () {
++                    animStopAll();
++                    var cursor = 0;
++                    rows.forEach(function (row) { cursor = animPlayRow(anchor, row, cursor); });
++                }));
++            }
++            block.appendChild(actions);
++            block.appendChild(animEl("div", "anim-note", t("anim_preview_note")));
++        } else {
++            var enclosing = animEnclosingAnchor();
++            block.appendChild(animEl("div", "anim-note", t("anim_not_anchor")));
++            if (enclosing) {
++                var pick = animEl("div", "anim-actions");
++                pick.appendChild(animButton("", t("anim_select_anchor") + " #" + enclosing, function () {
++                    var el = svgContent.querySelector("#" + CSS.escape(enclosing));
++                    if (el) selectElement(el, false);
++                }));
++                block.appendChild(pick);
++            }
++        }
++        animPanelEl.appendChild(block);
++
++        animRenderOrderList(animPanelEl, anchor);
++
++        var actions = animEl("div", "anim-actions");
++        actions.appendChild(animButton("play", "▶ " + t("anim_play_slide"), animPlaySlide));
++        actions.appendChild(animButton("", t("anim_stop"), animStopAll));
++        actions.appendChild(animButton("primary", t("anim_save"), animSave));
++        animPanelEl.appendChild(actions);
++        var status = animEl("div", "anim-actions");
++        status.appendChild(animEl("span", "anim-status"));
++        status.appendChild(animEl("span", "anim-status anim-dirty"));
++        animPanelEl.appendChild(status);
++        animRefreshDirty();
++    }
++
++    function animSave() {
++        var config = ANIM.config;
++        var empty = !config || (!config.defaults && !config.slides);
++        fetch("/api/animations", {
++            method: "POST",
++            headers: { "Content-Type": "application/json" },
++            body: JSON.stringify({ config: empty ? null : config })
++        }).then(function (res) {
++            return res.json().then(function (data) { return { ok: res.ok, data: data }; });
++        }).then(function (result) {
++            if (!result.ok) {
++                animSetStatus(t("anim_save_failed") + (result.data.error || ""), true);
++                return;
++            }
++            ANIM.dirty = false;
++            animSetStatus(t("anim_saved"));
++            animRefreshDirty();
++        }).catch(function (err) {
++            animSetStatus(t("anim_save_failed") + (err && err.message), true);
++        });
++    }
++
++    function loadAnimations() {
++        return fetch("/api/animations", { cache: "no-store" })
++            .then(function (res) { return res.json(); })
++            .then(function (data) {
++                ANIM.available = !!data.available;
++                if (!ANIM.available) return null;
++                ANIM.config = data.config;
++                ANIM.menu = data.menu;
++                ANIM.groups = data.groups || {};
++                ANIM.presets = data.presets || [];
++                ANIM.preset = data.preset || null;
++                animRenderPanel();
++                return data;
++            })
++            .catch(function () { ANIM.available = false; return null; });
++    }
++
+     loadConfig().then(function () {
+         loadSlides();
+         startSlidePolling();
++        loadAnimations();
+     });
+     initRubberBand();
+     initKeyboardShortcuts();
+diff --git a/skills/ppt-master/scripts/svg_editor/static/index.html b/skills/ppt-master/scripts/svg_editor/static/index.html
+index e7bb82e..52dc149 100644
+--- a/skills/ppt-master/scripts/svg_editor/static/index.html
++++ b/skills/ppt-master/scripts/svg_editor/static/index.html
+@@ -46,6 +46,7 @@
+                 <div id="selected-element" class="empty" data-i18n="empty_selected_element">Click an element on the slide to select it</div>
+                 <div id="element-props" style="display:none;"></div>
+             </div>
++            <div id="animation-panel" style="display:none;"></div>
+             <div id="annotation-input" style="display:none;">
+                 <div class="section-label" data-i18n="label_edit_instruction">Edit instruction</div>
+                 <div id="annotation-quick-actions"></div>

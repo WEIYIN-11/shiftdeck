@@ -1,6 +1,6 @@
 # shiftdeck 進度
 
-> 最後更新：2026-08-11 21:35
+> 最後更新：2026-08-12 08:50
 > 本檔是 session 之間的交接點。開新 session 時先讀這份，再讀對應的 `handoff/`。
 
 ## 環境
@@ -17,8 +17,8 @@
 |---|---|---|
 | 1 繁中化 | ✅ 完成並驗收 | `8cedaca` |
 | 2 頁型庫 | ✅ 完成並驗收 | `07c15f6` |
-| 3 動畫選擇器 | 🔄 進行中（背景 agent） | — |
-| 4 單頁重生成 | ⏸ 等待階段 3（同改 `svg_editor/app.js`） |
+| 3 動畫選擇器 | ✅ 完成，待驗收 | 未提交 |
+| 4 單頁重生成 | ⏸ 可開工（階段 3 已釋出 `svg_editor/app.js`） | — |
 
 **依賴**：1 → 3 → 4 為純序列（都動 `svg_editor/static/app.js`）。階段 2 已與 1 並行完成。
 
@@ -46,6 +46,18 @@
 - contract 含**佔位色換色表**（8 個中性色 → `colors.*` 角色）、字級角色對應、字數上限
 - KPI 測過 3／6 指標，流程圖測過 3／4／7 節點
 
+### 階段 3（動畫選擇器）
+
+實跑驗證，全部通過：
+
+- **三套組**：專業沉穩（fade 0.35s＋全淡入，chart 用 wipe）／輕快活潑（push up 0.5s＋飛入·縮放·逐項，takeaway 追加 grow_shrink）／極簡無干擾（fade 0.25s，頁內 0 列）
+- **OOXML 層驗證**（解壓 .pptx 比對 `p:cTn presetID/presetClass/presetSubtype` 與 sidecar）：professional 23 列、lively 26 列、minimal 0 列、none 0 列，順序與效果逐列吻合
+- **零回歸**：未選動畫時不寫 `animations.json`，匯出仍是 `fade@400ms` ＋ 0 動畫列，與改動前 baseline 完全一致
+- **confirm_ui HTTP 端到端**：stage1 → handoff → stage2 → final，選擇結果同時寫入 `result.json.deck_animation` 與 `<專案>/animations.json`（無 BOM）；未知套組回 400 且不落地任何檔案
+- **svg_editor API**：未知效果／不存在的 group／`order=0` 都被引擎驗證器擋下並回 400
+- **單元素即時預覽**：瀏覽器實測 translate／clip-path／scale 三族都真的在動，播完自動還原無殘留 inline style
+- `check_zhtw.py` 18 項全過（新增 28 個 UI 字串 × 4 語言）
+
 ## 待人工驗收（agent 看不到 UI，必須人眼確認）
 
 ### 階段 1
@@ -62,6 +74,14 @@
 8. 流程圖 5／6 節點佈局未實跑（3／4／7 已驗證），首次使用時看一眼
 9. 頁型縮圖尚未產出 PNG；若階段 4 選擇器需要點陣圖，要先決定 rasteriser
 
+### 階段 3
+10. **在 PowerPoint 開啟四份測試 .pptx**，確認動畫真的照設定播放（agent 只能驗到 XML 節點存在且結構正確，驗不到 PowerPoint 的實際觀感）。資料夾：
+    `C:\Users\try19\AppData\Local\Temp\claude\C--Users-try19-Desktop-resourse\22d00681-ebd0-4093-a48b-d3e0b3d5b07f\scratchpad\stage3-exports\`
+    內含 `stage3_professional.pptx`／`stage3_lively.pptx`／`stage3_minimal.pptx`／`stage3_none.pptx` 與各自的 `*.animations.json`。**`none` 那份是回歸對照組**，動畫窗格應該完全是空的。
+11. **瀏覽器預覽與 PowerPoint 的方向感是否一致**——`entrance_fly` 的 `direction` 指的是「從哪個邊進來」，`entrance_wipe` 指的是「擦除掃過的方向」，兩者語意不同但共用同一組上／右／下／左標籤。預覽是唯一的消歧手段，值得人眼比對一次
+12. 動畫面板在右側欄的**版面是否過擠**（效果列有 2 個下拉＋2 個按鈕，繁中標籤比英文長）
+13. `entrance_split` 的 `_in` / `_out` 在瀏覽器預覽裡是同一個動作（單一 `clip-path` 無法表達兩段式揭示）；匯出的 PPTX 是正確的，只有預覽是近似
+
 ## 待你授權
 
 **上游 PR 尚未送出**。草稿在 `docs/upstream-pr-draft.md`，推到公開 repo 需要你明確授權（agent 未代為 fork 或 push，這是對的）。
@@ -70,14 +90,29 @@
 
 1. **多行文字必須用「全 `<tspan>`」形式，第一行 `dy="0"`**。混寫「直接文字 + 定位 tspan」會讓 checker 的 `_positioned_text_lines` 直接 return None——**靜默失去版面溢出檢查**。這是規範文字與驗證器行為的真實落差。
 2. **未宣告字級在同一份 deck 出現超過 2 次是 error 而非 warning**。頁型用到的字級必須寫進 `spec_lock.md ## typography`。
+3. **`animations.json` 頂層只認 `version` / `defaults` / `slides`**，多一個 key 就驗證失敗——所以套組 id 不能存在 sidecar 裡，改存 `confirm_ui/result.json` 的 `deck_animation.preset`。
+4. **`defaults.animation.effect: "none"` 不會壓掉明列的 group 效果**（實測 26 列都有寫出來）。這正是精準控制的做法：只有列出來的 group 會動。
+5. **`direction` 的語意隨效果族而變**：`entrance_fly` 的 `up` 是「從上方進來」（往下移動），`entrance_wipe` 的 `up` 是「往上擦除」。registry 的 `row_xml` 是唯一可信來源，不要照字面猜。
+6. **上游 `_localized_text_present()` 只認 `_zh` / `_en` / `_ja`，不認 `_zh_tw`**（`confirm_ui/server.py`）。stage2 推薦檔的 `custom_candidates` 與 `design_directions` 只寫繁中會被 409 擋下。階段 1 沒動它是對的，但這是繁中化尚未覆蓋到的一角。
 
 ## 已修正的坑
 
 `engine.lock` 原鎖 `b6ed57c0`（main HEAD），但 `v4.5.0` tag 實際指向 `ec824aec`，兩版 `confirm_ui/app.js` 有實質差異會使行號失準。已改鎖正式 tag（commit `cec095d`）。
 
+## 階段 3 的檔案地圖
+
+| 檔案 | 角色 |
+|---|---|
+| `overlay/animations/presets.json` | 三套組配置＋元素分類規則＋每類 8 個常用效果的四語標籤（**唯一資料來源**） |
+| `overlay/animations/shiftdeck_animations.py` | 共用函式庫：讀套組、展開成 sidecar、用引擎自己的驗證器把關、寫檔 |
+| `overlay/animations/apply_preset.py` | CLI：`--preset <id>` 或 `--from-result`，把套組展開成完整的每頁每元素設定 |
+| `overlay/patches/03-animation-selector.patch` | 引擎端接線（1,505 行，基準＝01 patch 套用後的樹） |
+
+**vendor 端只有接線**：兩個 `server.py` 各加一段「往上找 `overlay/animations/`」的 bootstrap 與新 API，找不到就整組功能自動關閉、行為退回上游（已實測：把 overlay 改名後 `/api/animations` 回 `available:false`、`/api/animation-presets` 回空清單，兩個伺服器都正常啟動）。
+
 ## 下一步
 
-1. 階段 3 完成 → 驗收（重點：**未選動畫時不可造成回歸**、動畫節點要在 OOXML 層驗證、新 UI 字串要有四語言）
+1. 階段 3 驗收（人工項目見上方 10–13）→ 提交
 2. 派階段 4（`docs/handoff/stage4-single-page.md`）
 3. 全部完成後：人工驗收清單 → 授權送 PR → 發布
 

@@ -17,11 +17,14 @@
       "skills/ppt-master/scripts/confirm_ui/static/catalogs.json",
       "skills/ppt-master/scripts/confirm_ui/static/index.html",
       "skills/ppt-master/scripts/svg_editor/static/app.js",
-      "skills/ppt-master/scripts/svg_editor/static/index.html"
+      "skills/ppt-master/scripts/svg_editor/static/index.html",
+      "skills/ppt-master/scripts/confirm_ui/server.py",
+      "skills/ppt-master/scripts/svg_editor/server.py"
     ],
     "note": "patched_files 每新增一項，都是一筆未來的合併債務——加之前先確認覆蓋層真的做不到",
     "patches": {
-      "01-zh-tw-locale.patch": "階段 1：新增 zh-TW 語言（純加法，未動 en/ja/zh）。兩個 index.html 各只加一行語言選單項目——語言切換器是硬編碼 <li>，不改 HTML 就選不到繁體中文。若上游合併此 PR，整個 patch 即可刪除。"
+      "01-zh-tw-locale.patch": "階段 1：新增 zh-TW 語言（純加法，未動 en/ja/zh）。兩個 index.html 各只加一行語言選單項目——語言切換器是硬編碼 <li>，不改 HTML 就選不到繁體中文。若上游合併此 PR，整個 patch 即可刪除。",
+      "03-animation-selector.patch": "階段 3：動畫選擇器（純加法）。兩個 server.py 各加一段 overlay bootstrap 與新 API（confirm_ui: /api/animation-presets ＋ 確認後寫 animations.json；svg_editor: /api/animations GET/POST 與 /api/animations/preset）；兩個 app.js 加四語字串與 UI；svg_editor/index.html 加一個空容器 div。所有邏輯與資料都在 overlay/animations/，vendor 端只是接線——overlay 不存在時兩個伺服器自動退回上游行為（API 回 available:false／空清單）。基準為 01 patch 套用後的樹，兩者需依序套用。"
     }
   }
 }

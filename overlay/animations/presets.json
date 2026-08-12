@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "note": "shiftdeck deck animation presets. Effect keys are validated against vendor/ppt-master/skills/ppt-master/scripts/pptx_animation_presets.json at load time; this file only curates and localizes, it never redefines an effect.",
+  "element_classes": [
+    {
+      "id": "title",
+      "match": ["title", "cover-", "chapter-", "section-", "subtitle", "tagline", "headline", "heading", "head"]
+    },
+    {
+      "id": "takeaway",
+      "match": ["takeaway", "callout", "quote", "conclusion", "verdict", "outcome", "footnote", "note", "source", "summary", "insight"]
+    },
+    {
+      "id": "chart",
+      "match": ["chart", "table", "graph", "legend", "timeline", "track", "matrix", "axis", "plot"]
+    },
+    {
+      "id": "kpi",
+      "match": ["kpi", "metric", "gauge", "stat", "number", "score"]
+    },
+    {
+      "id": "image",
+      "match": ["image", "img-", "figure", "photo", "hero", "visual", "illustration"]
+    },
+    {
+      "id": "card",
+      "match": ["card", "item", "step-", "stage-", "pillar-", "tier-", "principle-", "row-", "quadrant-", "column-", "col-", "block-", "node-", "phase-", "bullet", "point-"]
+    }
+  ],
+  "page_roles": [
+    {
+      "id": "cover",
+      "match": ["cover", "title", "opening", "hero"]
+    },
+    {
+      "id": "section",
+      "match": ["section", "chapter", "divider", "agenda"]
+    },
+    {
+      "id": "closing",
+      "match": ["closing", "ending", "thanks", "thank", "qa", "wrapup", "conclusion"]
+    },
+    {
+      "id": "data",
+      "match": ["data", "chart", "kpi", "dashboard", "metric", "result", "finance", "table"]
+    }
+  ],
+  "seed_options": {
+    "emphasis_grow_shrink": { "size": 150 },
+    "emphasis_transparency": { "amount": 0.5 },
+    "emphasis_spin": { "amount": 360 }
+  },
+  "option_labels": {
+    "direction": {
+      "up": { "en": "Up", "zh": "上", "zh_tw": "上", "ja": "上" },
+      "right": { "en": "Right", "zh": "右", "zh_tw": "右", "ja": "右" },
+      "down": { "en": "Down", "zh": "下", "zh_tw": "下", "ja": "下" },
+      "left": { "en": "Left", "zh": "左", "zh_tw": "左", "ja": "左" },
+      "up_left": { "en": "Up left", "zh": "左上", "zh_tw": "左上", "ja": "左上" },
+      "up_right": { "en": "Up right", "zh": "右上", "zh_tw": "右上", "ja": "右上" },
+      "down_right": { "en": "Down right", "zh": "右下", "zh_tw": "右下", "ja": "右下" },
+      "down_left": { "en": "Down left", "zh": "左下", "zh_tw": "左下", "ja": "左下" },
+      "in": { "en": "In", "zh": "由小放大", "zh_tw": "由小放大", "ja": "小さく→大きく" },
+      "out": { "en": "Out", "zh": "由大缩小", "zh_tw": "由大縮小", "ja": "大きく→小さく" },
+      "in_slightly": { "en": "In slightly", "zh": "轻微放大", "zh_tw": "輕微放大", "ja": "わずかに拡大" },
+      "out_slightly": { "en": "Out slightly", "zh": "轻微缩小", "zh_tw": "輕微縮小", "ja": "わずかに縮小" },
+      "in_center": { "en": "In from center", "zh": "自页面中心", "zh_tw": "自頁面中心", "ja": "中央から" },
+      "out_center": { "en": "Out to center", "zh": "退向页面中心", "zh_tw": "退向頁面中心", "ja": "中央へ" },
+      "in_bottom": { "en": "In from bottom", "zh": "自页面底部", "zh_tw": "自頁面底部", "ja": "下から" },
+      "out_bottom": { "en": "Out to bottom", "zh": "退向页面底部", "zh_tw": "退向頁面底部", "ja": "下へ" },
+      "horizontal_in": { "en": "Horizontal in", "zh": "水平向内", "zh_tw": "水平向內", "ja": "水平内向き" },
+      "horizontal_out": { "en": "Horizontal out", "zh": "水平向外", "zh_tw": "水平向外", "ja": "水平外向き" },
+      "vertical_in": { "en": "Vertical in", "zh": "垂直向内", "zh_tw": "垂直向內", "ja": "垂直内向き" },
+      "vertical_out": { "en": "Vertical out", "zh": "垂直向外", "zh_tw": "垂直向外", "ja": "垂直外向き" }
+    }
+  },
+  "menu": {
+    "entrance": [
+      { "key": "entrance_fade", "label_en": "Fade In", "label_zh": "淡入", "label_zh_tw": "淡入", "label_ja": "フェードイン" },
+      { "key": "entrance_fly", "label_en": "Fly In", "label_zh": "飞入", "label_zh_tw": "飛入", "label_ja": "スライドイン" },
+      { "key": "entrance_wipe", "label_en": "Wipe", "label_zh": "擦除", "label_zh_tw": "擦除", "label_ja": "ワイプ" },
+      { "key": "entrance_zoom", "label_en": "Zoom", "label_zh": "缩放", "label_zh_tw": "縮放", "label_ja": "ズーム" },
+      { "key": "entrance_float", "label_en": "Float In", "label_zh": "浮入", "label_zh_tw": "浮入", "label_ja": "フロートイン" },
+      { "key": "entrance_split", "label_en": "Split", "label_zh": "劈裂", "label_zh_tw": "劈裂", "label_ja": "スプリット" },
+      { "key": "entrance_grow_and_turn", "label_en": "Grow & Turn", "label_zh": "放大旋转", "label_zh_tw": "放大旋轉", "label_ja": "拡大回転" },
+      { "key": "entrance_appear", "label_en": "Appear", "label_zh": "出现", "label_zh_tw": "出現", "label_ja": "出現" }
+    ],
+    "emphasis": [
+      { "key": "emphasis_grow_shrink", "label_en": "Grow / Shrink", "label_zh": "放大缩小", "label_zh_tw": "放大縮小", "label_ja": "拡大縮小" },
+      { "key": "emphasis_spin", "label_en": "Spin", "label_zh": "陀螺旋转", "label_zh_tw": "陀螺旋轉", "label_ja": "スピン" },
+      { "key": "emphasis_teeter", "label_en": "Teeter", "label_zh": "跷跷板", "label_zh_tw": "蹺蹺板", "label_ja": "シーソー" },
+      { "key": "emphasis_transparency", "label_en": "Transparency", "label_zh": "透明", "label_zh_tw": "透明", "label_ja": "透明度" },
+      { "key": "emphasis_flash_bulb", "label_en": "Flash Bulb", "label_zh": "闪光灯", "label_zh_tw": "閃光燈", "label_ja": "フラッシュ" },
+      { "key": "emphasis_bold_flash", "label_en": "Bold Flash", "label_zh": "加粗闪烁", "label_zh_tw": "加粗閃爍", "label_ja": "ボールドフラッシュ" },
+      { "key": "emphasis_vertical_grow", "label_en": "Vertical Grow", "label_zh": "垂直放大", "label_zh_tw": "垂直放大", "label_ja": "垂直拡大" },
+      { "key": "emphasis_wave", "label_en": "Wave", "label_zh": "波浪", "label_zh_tw": "波浪", "label_ja": "ウェーブ" }
+    ],
+    "path": [
+      { "key": "path_right", "label_en": "Move Right", "label_zh": "向右移动", "label_zh_tw": "向右移動", "label_ja": "右へ移動" },
+      { "key": "path_left", "label_en": "Move Left", "label_zh": "向左移动", "label_zh_tw": "向左移動", "label_ja": "左へ移動" },
+      { "key": "path_up", "label_en": "Move Up", "label_zh": "向上移动", "label_zh_tw": "向上移動", "label_ja": "上へ移動" },
+      { "key": "path_down", "label_en": "Move Down", "label_zh": "向下移动", "label_zh_tw": "向下移動", "label_ja": "下へ移動" },
+      { "key": "path_arc_up", "label_en": "Arc Up", "label_zh": "上弧线", "label_zh_tw": "上弧線", "label_ja": "上向きアーク" },
+      { "key": "path_circle", "label_en": "Circle", "label_zh": "圆形", "label_zh_tw": "圓形", "label_ja": "円" },
+      { "key": "path_s_curve1", "label_en": "S Curve", "label_zh": "S 形曲线", "label_zh_tw": "S 形曲線", "label_ja": "S字カーブ" },
+      { "key": "path_zigzag", "label_en": "Zigzag", "label_zh": "锯齿形", "label_zh_tw": "鋸齒形", "label_ja": "ジグザグ" }
+    ],
+    "exit": [
+      { "key": "exit_fade", "label_en": "Fade Out", "label_zh": "淡出", "label_zh_tw": "淡出", "label_ja": "フェードアウト" },
+      { "key": "exit_fly", "label_en": "Fly Out", "label_zh": "飞出", "label_zh_tw": "飛出", "label_ja": "スライドアウト" },
+      { "key": "exit_wipe", "label_en": "Wipe Out", "label_zh": "擦除消失", "label_zh_tw": "擦除消失", "label_ja": "ワイプアウト" },
+      { "key": "exit_zoom", "label_en": "Zoom Out", "label_zh": "缩放消失", "label_zh_tw": "縮放消失", "label_ja": "ズームアウト" },
+      { "key": "exit_float", "label_en": "Float Out", "label_zh": "浮出", "label_zh_tw": "浮出", "label_ja": "フロートアウト" },
+      { "key": "exit_split", "label_en": "Split Out", "label_zh": "劈裂消失", "label_zh_tw": "劈裂消失", "label_ja": "スプリットアウト" },
+      { "key": "exit_dissolve", "label_en": "Dissolve Out", "label_zh": "溶解消失", "label_zh_tw": "溶解消失", "label_ja": "ディゾルブアウト" },
+      { "key": "exit_appear", "label_en": "Disappear", "label_zh": "消失", "label_zh_tw": "消失", "label_ja": "消去" }
+    ]
+  },
+  "presets": [
+    {
+      "id": "professional",
+      "label_en": "Professional & composed",
+      "label_zh": "专业沉稳",
+      "label_zh_tw": "專業沉穩",
+      "label_ja": "プロフェッショナル",
+      "desc_en": "Fade-led, no motion paths, short durations. Built for external business decks where motion must never compete with the argument.",
+      "desc_zh": "以淡入为主、无路径动画、时长偏短。适合对外商务简报，动效不与论点争夺注意力。",
+      "desc_zh_tw": "以淡入為主、無路徑動畫、時長偏短。適合對外商務簡報，動效不與論點爭奪注意力。",
+      "desc_ja": "フェード中心、モーションパスなし、短めの再生時間。動きが主張を邪魔しない社外向けデッキ用。",
+      "defaults": {
+        "transition": { "effect": "fade", "duration": 0.35 },
+        "animation": { "effect": "none", "duration": 0.35, "stagger": 0.15, "trigger": "after-previous" }
+      },
+      "page_roles": {
+        "cover": { "transition": { "effect": "fade", "duration": 0.5 } },
+        "section": { "transition": { "effect": "fade", "duration": 0.5 } },
+        "closing": { "transition": { "effect": "fade", "duration": 0.5 } }
+      },
+      "elements": {
+        "title": { "effects": [{ "effect": "entrance_fade", "duration": 0.3 }] },
+        "chart": { "effects": [{ "effect": "entrance_wipe", "effect_options": { "direction": "right" }, "duration": 0.45 }] },
+        "kpi": { "effects": [{ "effect": "entrance_fade", "duration": 0.3 }] },
+        "card": { "effects": [{ "effect": "entrance_fade", "duration": 0.3 }] },
+        "takeaway": { "effects": [{ "effect": "entrance_fade", "duration": 0.35 }] },
+        "image": { "effects": [{ "effect": "entrance_fade", "duration": 0.4 }] },
+        "default": { "effects": [{ "effect": "entrance_fade", "duration": 0.3 }] }
+      }
+    },
+    {
+      "id": "lively",
+      "label_en": "Light & lively",
+      "label_zh": "轻快活泼",
+      "label_zh_tw": "輕快活潑",
+      "label_ja": "軽快で活発",
+      "desc_en": "Measured fly-in and zoom with item-by-item reveals. Built for internal training and sharing sessions where pacing carries the talk.",
+      "desc_zh": "适度飞入与缩放、逐项揭示。适合内训与分享场合，用节奏带动讲述。",
+      "desc_zh_tw": "適度飛入與縮放、逐項揭示。適合內訓與分享場合，用節奏帶動講述。",
+      "desc_ja": "適度なスライドインとズーム、項目ごとの表示。社内研修や共有セッション向け。",
+      "defaults": {
+        "transition": { "effect": "push", "effect_options": { "direction": "up" }, "duration": 0.5 },
+        "animation": { "effect": "none", "duration": 0.45, "stagger": 0.25, "trigger": "after-previous" }
+      },
+      "page_roles": {
+        "cover": { "transition": { "effect": "fade", "duration": 0.6 } },
+        "section": { "transition": { "effect": "push", "effect_options": { "direction": "up" }, "duration": 0.6 } },
+        "closing": { "transition": { "effect": "fade", "duration": 0.6 } }
+      },
+      "elements": {
+        "title": { "effects": [{ "effect": "entrance_fade", "duration": 0.4 }] },
+        "chart": { "effects": [{ "effect": "entrance_wipe", "effect_options": { "direction": "right" }, "duration": 0.6 }] },
+        "kpi": { "effects": [{ "effect": "entrance_zoom", "effect_options": { "direction": "in" }, "duration": 0.45 }] },
+        "card": { "effects": [{ "effect": "entrance_fly", "effect_options": { "direction": "down" }, "duration": 0.45 }] },
+        "takeaway": {
+          "effects": [
+            { "effect": "entrance_fade", "duration": 0.4 },
+            { "effect": "emphasis_grow_shrink", "effect_options": { "size": 108 }, "duration": 0.5, "delay": 0.2 }
+          ]
+        },
+        "image": { "effects": [{ "effect": "entrance_zoom", "effect_options": { "direction": "in_slightly" }, "duration": 0.5 }] },
+        "default": { "effects": [{ "effect": "entrance_fade", "duration": 0.4 }] }
+      }
+    },
+    {
+      "id": "minimal",
+      "label_en": "Minimal & undistracting",
+      "label_zh": "极简无干扰",
+      "label_zh_tw": "極簡無干擾",
+      "label_ja": "ミニマル",
+      "desc_en": "Page transitions only; nothing moves inside a page. Built for data-dense decks that are read rather than performed.",
+      "desc_zh": "只保留页间转场，页内完全不动。适合资料密集、供阅读而非表演的简报。",
+      "desc_zh_tw": "只保留頁間轉場，頁內完全不動。適合資料密集、供閱讀而非表演的簡報。",
+      "desc_ja": "ページ切り替えのみ、ページ内は動かさない。読ませるためのデータ密度の高いデッキ向け。",
+      "defaults": {
+        "transition": { "effect": "fade", "duration": 0.25 },
+        "animation": { "effect": "none", "duration": 0.3, "stagger": 0.1, "trigger": "after-previous" }
+      },
+      "page_roles": {},
+      "elements": {}
+    }
+  ]
+}
