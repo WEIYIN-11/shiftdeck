@@ -1,0 +1,98 @@
+name: 錯誤回報 / Bug report
+description: 有東西壞了、跑不動，或做出來的簡報不對
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝回報。中文或英文都可以（Chinese or English both fine）。
+
+        **在填之前**：如果是安裝或版本問題，下面第一欄的輸出通常就直接指出原因了。
+
+  - type: textarea
+    id: env-check
+    attributes:
+      label: 環境檢查輸出
+      description: 在 shiftdeck 資料夾裡跑 `python scripts/setup.py --check`，把輸出貼上來
+      placeholder: |
+        鎖定版本  v4.5.0 (ec824aec)
+        引擎狀態  就緒且版本相符
+        引擎修補  9 個檔案：...
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 發生什麼事
+      description: 你原本想做什麼、實際變成怎樣。做出來的東西不對的話，附截圖最快
+      placeholder: |
+        想把第 3 頁換成 KPI 儀表板，按了「請 AI 重畫這一頁」之後回對話說「重畫這一頁」，
+        結果 AI 說找不到請求。
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 怎麼重現
+      description: 一步一步寫，包含你在對話裡打的那句話
+      placeholder: |
+        1. python scripts/setup.py
+        2. 在 AI 工具裡說「用 shiftdeck 做一份簡報，主題是…」
+        3. 確認頁選「專業沉穩」
+        4. 生成完成後在預覽編輯器裡…
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: 錯誤訊息
+      description: 終端機的紅字、瀏覽器主控台的錯誤，有多少貼多少
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 哪個部分
+      options:
+        - 安裝 / setup.py
+        - 頁型庫（換頁型、版面）
+        - 動畫（套組、元素微調、預覽）
+        - 單頁重生成
+        - 繁體中文介面
+        - 匯出的 .pptx 有問題（跑版、缺東西）
+        - 其他 / 不確定
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: 作業系統與 Python 版本
+      placeholder: "Windows 11 / Python 3.11.9"
+    validations:
+      required: true
+
+  - type: input
+    id: ai-tool
+    attributes:
+      label: 用哪個 AI 工具
+      placeholder: "Claude Code / Cursor / Codex CLI …"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 確認一下
+      options:
+        - label: 我沒有直接改過 `vendor/` 裡的檔案
+          required: true
+        - label: 如果是簡報做出來不對，我跑過 `python scripts/visual_check.py <匯出檔>` 並看過 PNG
+          required: false

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 使用說明（先看這裡）
+    url: https://github.com/WEIYIN-11/shiftdeck/blob/main/docs/usage.md
+    about: 安裝、第一句指令、四個頁型、動畫套組、單頁重做，以及常見卡關狀況
+  - name: 已知限制與待辦
+    url: https://github.com/WEIYIN-11/shiftdeck/blob/main/docs/PROGRESS.md
+    about: 每個功能的實測數字、誠實的邊界、還沒做的事——你遇到的可能已經記在這裡
+  - name: 引擎本身的問題（ppt-master）
+    url: https://github.com/hugohe3/ppt-master/issues
+    about: SVG 轉 PPTX、圖表、範本、匯出品質等核心行為屬於上游引擎。把 vendor/ 改名後仍會發生的問題，請回報到那裡

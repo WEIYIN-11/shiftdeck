@@ -18,7 +18,7 @@
 | 1 繁中化 | ✅ 完成並驗收 | `8cedaca` |
 | 2 頁型庫 | ✅ 完成並驗收 | `07c15f6` |
 | 3 動畫選擇器 | ✅ 完成並提交 | `d4450d8` |
-| 4 單頁重生成 | ✅ P0／P1／P2 全部完成並驗收 | 待提交 |
+| 4 單頁重生成 | ✅ P0／P1／P2 全部完成並驗收 | `2d9c497` |
 
 **依賴**：1 → 3 → 4 為純序列（都動 `svg_editor/static/app.js`）。階段 2 已與 1 並行完成。
 
@@ -174,7 +174,7 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 | E3 推 GitHub | 等階段 4 完成 | ⏳ 待執行 |
 | E4 `entrance_split` 預覽落差 | 保留，面板已有說明 | ✅ 無需動作 |
 | E5 套組自動套用 | 自動化 | ✅ 已列為階段 4 的 P1 |
-| E6 伺服器端繁中缺口 | 補，併入同一個 PR | ⏳ 等階段 4 完成 |
+| E6 伺服器端繁中缺口 | 補，併入同一個 PR | ✅ 已補（併進 `01-zh-tw-locale.patch`，真實 HTTP 驗過 409→200） |
 
 **PR 前置條件已備妥**：`gh` 已認證（帳號 `WEIYIN-11`，含 `repo` scope）；草稿 `docs/upstream-pr-draft.md` 120 行完成。
 階段 4 一結束即可執行：補 E6 → fork → 推 branch → 開 PR。
@@ -187,7 +187,7 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 3. **`animations.json` 頂層只認 `version` / `defaults` / `slides`**，多一個 key 就驗證失敗——所以套組 id 不能存在 sidecar 裡，改存 `confirm_ui/result.json` 的 `deck_animation.preset`。
 4. **`defaults.animation.effect: "none"` 不會壓掉明列的 group 效果**（實測 26 列都有寫出來）。這正是精準控制的做法：只有列出來的 group 會動。
 5. **`direction` 的語意隨效果族而變**：`entrance_fly` 的 `up` 是「從上方進來」（往下移動），`entrance_wipe` 的 `up` 是「往上擦除」。registry 的 `row_xml` 是唯一可信來源，不要照字面猜。
-6. **上游 `_localized_text_present()` 只認 `_zh` / `_en` / `_ja`，不認 `_zh_tw`**（`confirm_ui/server.py`）。stage2 推薦檔的 `custom_candidates` 與 `design_directions` 只寫繁中會被 409 擋下。階段 1 沒動它是對的，但這是繁中化尚未覆蓋到的一角。
+6. **上游 `_localized_text_present()` 只認 `_zh` / `_en` / `_ja`，不認 `_zh_tw`**（`confirm_ui/server.py`）。stage2 推薦檔的 `custom_candidates` 與 `design_directions` 只寫繁中會被 409 擋下。~~階段 1 沒動它是對的~~——**2026-08-12 E6 已修**，tuple 補一個 `f'{field}_zh_tw'`，併進 `01-zh-tw-locale.patch`。全樹掃過，這是整個 vendor Python 樹裡**唯一**一處寫死語言 suffix 白名單的地方（`_build_catalogs()` 的 `label_zh`/`use_en` 是英文名稱回填，走 `zh_tw → zh` fallback 本來就通）。
 7. **`svg_quality_checker.py <單一 svg 檔>` 本來就能跑**，且會自己往上找到專案的 `spec_lock.md`。單頁品質檢查不需要任何 patch——階段 4 交接文件說 `--stage first-page` 是最重要的線索，但真正的線索是 CLI 一直接受單一檔案路徑。
 8. **匯出有指紋閘門**：`svg_to_pptx` 會比對 `svg_output/` 全體的指紋與 `validation/svg_quality_report.json`，對不上就拒絕匯出。所以「單頁重生成」永遠要在匯出前補跑一次全份 final 檢查（0.9s）。這不是可以優化掉的東西，是釋出閘門。
 9. **`finalize_svg.py` 的產物發布是整個目錄原子替換**，但候選目錄是 `copytree`（＝`copy2`）自 `svg_output/`，所以沒被任何步驟改到的頁會保留原 mtime。純文字專案上全量 finalize 也不會重新蓋章 mtime——`--pages` 真正買到的是**時間**，不是 mtime 穩定性。
@@ -227,8 +227,39 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 骨架與備註 → **只重寫那一支 SVG** → 跑 `regen_page.py --request` 完成單頁檢查、
 增量 finalize、匯出，並把請求標記為完成。
 
+## 發布準備（2026-08-12）
+
+開源專案的基本件已補齊：
+
+| 檔案 | 內容 |
+|---|---|
+| `docs/usage.md` | 使用者視角完整流程（README 原本就連過去，檔案先前不存在） |
+| `README.md` | 對齊四階段實況：動畫套組、`visual_check.py`、單頁重生成的實測數字與誠實邊界 |
+| `CONTRIBUTING.md` | 覆蓋層架構、`vendor/` 不可改的三個實際後果、patch 產生與兩道交叉驗證 |
+| `.github/ISSUE_TEMPLATE/` | 錯誤回報／功能建議／config（引擎本身的問題導向上游） |
+| `AGENTS.md` ＋ `CLAUDE.md` | **新發現的缺口**：repo 根目錄沒有 agent 進入點，AI 工具打開 shiftdeck 資料夾時找不到 `vendor/ppt-master/skills/ppt-master/SKILL.md`（引擎自己的 repo 靠根目錄 `AGENTS.md` 指路，shiftdeck 少了這一份）。同時明訂專案要建在根目錄 `projects/`——建進 `vendor/` 會在下次 `setup.py` 重抓時被 `rmtree` 刪掉 |
+
+**CONTRIBUTING 的 patch 產生法已實跑驗證**：用臨時索引（`GIT_INDEX_FILE`）套 01→03 重建基準樹
+`f30ff4a3`，再 `git diff` 工作區，產出的 patch 與 `04-single-page-regen.patch` **逐 byte 相同**。
+全部 patch 疊加的樹 SHA 亦重現為 `98ca7361`，與 PROGRESS 既有紀錄一致。
+**E6 併入後樹 SHA 改為 `78bc80bc`**（01 多了 server.py 一行），01→03→04 依序套用仍乾淨，
+與工作區逐 byte 相同——E6 插入的那行沒有讓 03／04 的 hunk 失準。
+
+### E6：伺服器端繁中缺口（已修並驗證）
+
+`_localized_text_present()` 的 suffix 白名單補上 `_zh_tw`，**改動一行**。逐項見
+[`handoff/stage1-i18n.md`](handoff/stage1-i18n.md) 的「E6」段。要點：
+
+- **真實 HTTP 重現**（非推論）：同一份 stage2 fixture（文案只寫 `*_zh_tw`）、同一支伺服器，
+  只差那一行——上游 v4.5.0 回 `409 custom_candidates.mode requires non-empty localized name`，
+  補完回 `200` 並帶著繁中文案
+- **純加法的實證**：11 種輸入形態逐一比對新舊實作，只有「只寫 `_zh_tw`」從 `False` 變 `True`
+- **PR 草稿的每一項宣稱都機械驗過**：`en`/`ja`/`zh` 三個 `MESSAGES` 物件、20 列內嵌對照表、
+  catalogs 去掉 `*_zh_tw` 後的 49,435 bytes，全部與 v4.5.0 逐 byte 相同；兩個 `index.html`
+  各只多一行、零刪除；`check_zhtw.py` 對 PR 分支（不含階段 3/4）18 項全過，鍵數 176／73／172
+
 ## 下一步
 
 1. 人工驗收：階段 1（1–6）、階段 2（7–9）、階段 3（10–13）、階段 4（14–18）
 2. 第 17 項需要你定奪（換頁型要不要一併改檔名）
-3. 提交階段 4 → 授權送上游 PR → 發布
+3. E3 推 GitHub → E1／E6 送上游 PR
