@@ -53,7 +53,8 @@ python scripts/setup.py --check
 
 - **不要改掉現有 `zh` 區塊**——那會讓 PR 無法被接受，也會傷害簡中使用者
 - 不要順手重構 `app.js` 的其他部分（PR 越單純越容易被接受）
-- 不要碰 `server.py`（無硬編碼中文，改了只會擴大 diff）
+- ~~不要碰 `server.py`~~ ——**2026-08-12 E6 已推翻這條**，見下方「E6」。原本的理由（無硬編碼中文）
+  是對的，但漏看了 `_localized_text_present()` 的 suffix 白名單，那是繁中化真正的伺服器端缺口。
 
 ## 完成後
 
@@ -64,4 +65,59 @@ python scripts/setup.py --check
 - 回歸檢查：`python scripts/check_zhtw.py`（掃簡體殘留 + key 對齊 + 切換器可達性）。
 - **多改了兩個檔案**：`confirm_ui/static/index.html` 與 `svg_editor/static/index.html`。語言選單的
   `<li>` 是寫死在 HTML 裡的，只改 `LANG_NAMES` 使用者仍然選不到繁體中文；各加一行。
-- PR 尚未送出（需人工建立 fork 並推送）。
+
+## E6：伺服器端的繁中缺口（2026-08-12 補上）
+
+`confirm_ui/server.py` 的 `_localized_text_present()` 用一組寫死的 suffix 判斷「這個候選項
+有沒有寫文案」，白名單只有 `field` / `_zh` / `_en` / `_ja`。**`_zh_tw` 不在裡面**，所以
+stage2 推薦檔的 `custom_candidates` 與 `design_directions` 只寫繁中時，字明明在檔案裡，
+伺服器卻看不到，`GET /api/recommendations` 回 409。
+
+改動就一行——tuple 補一個 `f'{field}_zh_tw'`。
+
+**驗證方式（真實 HTTP，非推論）**：用 `project_manager.py init` 建真專案，補齊
+`template_options` → `template_selection` → `result(stage1-confirmed)` → `template_handoff`
+→ `recommendations.stage2.json`（文案全部只寫 `name_zh_tw` / `behavior_zh_tw`），
+同一份 fixture、同一支伺服器，只差那一行：
+
+| 版本 | `GET /api/recommendations` |
+|---|---|
+| 上游 v4.5.0 | `409 custom_candidates.mode requires non-empty localized name` |
+| 補完 `_zh_tw` | `200`，回應裡帶著 `*_zh_tw` 文案 |
+
+另外把 `_localized_text_present()` 的 11 種輸入形態逐一比對新舊實作：**只有「只寫 `_zh_tw`」
+這一類從 `False` 變 `True`**，其餘（裸欄位／只寫 zh／只寫 en／只寫 ja／空字串／空白字串／
+非字串／四種都寫……）結果完全相同。純加法，不可能讓既有檔案開始失敗。
+
+**為什麼併進 01 而不另開 05 patch**：E6 是同一個 PR 的伺服器端另一半，放在 01 的話
+「上游合併 → 整個 patch 刪掉」這個乾淨性質才成立；獨立成 05 的話它的基準會是
+01→03→04 之後的樹，抽不出乾淨的上游 diff，還多一筆刪除債。已驗證 01（含 E6）→03→04
+依序套用後的 tree SHA `78bc80bc` 與工作區完全相同，E6 插入的那行沒有讓 03/04 失準。
+
+`engine.lock` 的 `patched_files` 早在階段 3 就已登記 `confirm_ui/server.py`，不必新增項目。
+
+## PR（2026-08-12 已送出）
+
+| 項目 | 連結 |
+|---|---|
+| **PR** | https://github.com/hugohe3/ppt-master/pull/259 |
+| **Issue**（先開，PR 內文第一行連過去） | https://github.com/hugohe3/ppt-master/issues/258 |
+| fork | https://github.com/WEIYIN-11/ppt-master |
+| branch | `feat/zh-tw-locale`，commit `d2fa67f`，基準 `ec824ae`（v4.5.0） |
+
+**PR 實際內容**（GitHub 上核對過）：6 個檔案、482 增 35 刪，與
+`overlay/patches/01-zh-tw-locale.patch` 完全一致。**階段 2／3／4 的東西一個都沒混進去**
+（`finalize_svg.py`、`svg_to_pptx.py`、`svg_editor/server.py`、`overlay/` 全部不在清單裡）。
+
+**為什麼先開 issue**：上游 `CONTRIBUTING.md` 明訂「Translations & wording-only edits —
+please open an issue rather than a PR」，且「Not a fit」清單直接列了未經討論的純翻譯；
+新增語言又落在「Substantial features… may be closed without detailed review」。
+所以先開 issue 說明來意並附 compare 連結，PR 內文第一行連回 issue，並主動寫明
+「若只想收那一行 server.py 的 bug fix，說一聲我就把其餘拿掉」。
+
+PR 模板的三個勾選框已全部勾選——第二個框（本人已審過完整 diff）是使用者在送出前
+逐項看過 diff 後才勾的，不是 agent 代勾。
+
+**若上游合併**：`overlay/patches/01-zh-tw-locale.patch` 整份刪除，`engine.lock` 的
+`patched_files` 移除五個 static 檔（`confirm_ui/server.py` 要留著，階段 3 還在用），
+`scripts/check_zhtw.py` 可保留當作升級後的回歸檢查。

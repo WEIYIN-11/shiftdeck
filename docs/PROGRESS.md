@@ -169,15 +169,32 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 
 | 項目 | 裁定 | 狀態 |
 |---|---|---|
-| E1 送上游 PR | ✅ 授權 | ⏳ 等階段 4 完成（PR 含 E6 的 `confirm_ui/server.py` 修改，與階段 4 agent 撞車） |
+| E1 送上游 PR | ✅ 授權 | ✅ **已送出**：[PR #259](https://github.com/hugohe3/ppt-master/pull/259)、[Issue #258](https://github.com/hugohe3/ppt-master/issues/258) |
 | E2 頁型縮圖 | 用 SVG，不轉 PNG | ✅ 已寫入階段 4 交接文件 |
 | E3 推 GitHub | 等階段 4 完成 | ⏳ 待執行 |
 | E4 `entrance_split` 預覽落差 | 保留，面板已有說明 | ✅ 無需動作 |
 | E5 套組自動套用 | 自動化 | ✅ 已列為階段 4 的 P1 |
 | E6 伺服器端繁中缺口 | 補，併入同一個 PR | ✅ 已補（併進 `01-zh-tw-locale.patch`，真實 HTTP 驗過 409→200） |
 
-**PR 前置條件已備妥**：`gh` 已認證（帳號 `WEIYIN-11`，含 `repo` scope）；草稿 `docs/upstream-pr-draft.md` 120 行完成。
-階段 4 一結束即可執行：補 E6 → fork → 推 branch → 開 PR。
+### 上游 PR（2026-08-12 已送出）
+
+| 項目 | 連結 |
+|---|---|
+| PR | https://github.com/hugohe3/ppt-master/pull/259 |
+| Issue（先開，PR 連過去） | https://github.com/hugohe3/ppt-master/issues/258 |
+| fork ／ branch | `WEIYIN-11/ppt-master` ／ `feat/zh-tw-locale`（commit `d2fa67f`，基準 `ec824ae`） |
+
+GitHub 上核對過：**6 個檔案、482 增 35 刪**，與 `01-zh-tw-locale.patch` 完全一致。
+**階段 2／3／4 的差異化功能一個都沒混進去**——`finalize_svg.py`、`svg_to_pptx.py`、
+`svg_editor/server.py`、`overlay/` 全部不在變更清單裡。
+
+**先開 issue 的原因**：上游 `CONTRIBUTING.md` 明訂翻譯類與新功能要先開 issue 討論，
+「Not a fit」清單直接列了未經討論的純翻譯，新增語言又落在「may be closed without
+detailed review」。所以 issue 先講來意＋附 compare 連結，PR 內文第一行連回 issue，
+並主動提「若只想收那一行 server.py 的 bug fix，說一聲就把其餘拿掉」。
+**這個 PR 被關掉也不影響 shiftdeck**——程式碼在 `overlay/patches/` 裡本來就能用。
+
+逐項交接見 [`handoff/stage1-i18n.md`](handoff/stage1-i18n.md) 的「PR」段（含合併後的清理步驟）。
 
 
 ## 技術發現（已寫入 contract）
@@ -262,4 +279,6 @@ P0/P1/P2 全部完成。獨立驗證（非採信 agent 自述）：
 
 1. 人工驗收：階段 1（1–6）、階段 2（7–9）、階段 3（10–13）、階段 4（14–18）
 2. 第 17 項需要你定奪（換頁型要不要一併改檔名）
-3. E3 推 GitHub → E1／E6 送上游 PR
+3. ~~E1／E6 送上游 PR~~ ✅ 已送出（[PR #259](https://github.com/hugohe3/ppt-master/pull/259)）——
+   接下來只要等維護者回覆；若他只想收 server.py 那一行，PR 內文已主動提出可縮減
+4. E3 推 GitHub（shiftdeck 自己的 repo，尚未執行）
