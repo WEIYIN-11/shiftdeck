@@ -1,0 +1,54 @@
+diff --git a/skills/ppt-master/scripts/confirm_ui/static/app.js b/skills/ppt-master/scripts/confirm_ui/static/app.js
+index 10cf4b9..28782f7 100644
+--- a/skills/ppt-master/scripts/confirm_ui/static/app.js
++++ b/skills/ppt-master/scripts/confirm_ui/static/app.js
+@@ -933,10 +933,15 @@
+         return "/static/style_previews/" + encodeURIComponent(id || "") + ".svg";
+     }
+ 
++    // shiftdeck: 這些縮圖是「挑風格」當下就要看到的東西，不是捲到才需要的裝飾。
++    // 上游的 loading="lazy" 讓瀏覽器等圖快進視窗才發請求，於是每次切換選項或捲
++    // 到視覺方向區塊，圖都是那一刻才開始下載與解碼，使用者的感受是預覽慢半拍。
++    // 改成即時載入＋同步解碼；整份目錄的預抓見 prefetchVisualStylePreviews()。
+     function appendVisualStyleImage(parent, id) {
+         var img = document.createElement("img");
+         img.alt = "";
+-        img.loading = "lazy";
++        img.loading = "eager";
++        img.decoding = "sync";
+         img.src = visualStylePreviewSrc(id);
+         img.onerror = function () {
+             parent.innerHTML = visualStylePreview(id);
+@@ -944,6 +949,24 @@
+         parent.appendChild(img);
+     }
+ 
++    // shiftdeck: 一次把所有風格縮圖抓進瀏覽器快取，之後切換選項就不再等網路。
++    // 全部是向量圖、走 localhost，抓完的成本遠低於使用者每次點選項的等待感。
++    var _visualStylePrefetched = false;
++    function prefetchVisualStylePreviews() {
++        if (_visualStylePrefetched || !CAT || !CAT.visual_styles) return;
++        _visualStylePrefetched = true;
++        var list = CAT.visual_styles;
++        var flat = (list.length && list[0] && list[0].items)
++            ? list.reduce(function (a, g) { return a.concat(g.items || []); }, [])
++            : list;
++        flat.forEach(function (item) {
++            if (!item || !item.id) return;
++            var pre = new Image();
++            pre.decoding = "async";
++            pre.src = visualStylePreviewSrc(item.id);
++        });
++    }
++
+     function escapeHtml(value) {
+         return String(value == null ? "" : value)
+             .replace(/&/g, "&amp;")
+@@ -2231,6 +2254,7 @@
+     }
+ 
+     function renderVisualDirection(host) {
++        prefetchVisualStylePreviews();   // shiftdeck: 縮圖先抓，別讓人點了才等
+         var sec = section(5, "sec_visual");
+         var custom = creativeCustomOptions(
+             "visual_style", "visual_style_behavior", "visual_style_behavior_placeholder"

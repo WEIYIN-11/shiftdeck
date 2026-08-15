@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shiftdeck 主控台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<aside class="rail">
+  <div class="brand">
+    <div class="mark">SD</div>
+    <div>
+      <div class="brand-sub">SHIFTDECK</div>
+      <div class="brand-name">主控台</div>
+    </div>
+  </div>
+
+  <div class="agent-card" id="agent-card">
+    <div class="agent-dot" id="agent-dot"></div>
+    <div class="agent-text">
+      <div class="agent-title" id="agent-title">連線中…</div>
+      <div class="agent-note" id="agent-note"></div>
+    </div>
+  </div>
+
+  <div class="bar-wrap" id="bar-wrap" hidden><div class="bar" id="bar"></div></div>
+
+  <div class="hint" id="agent-hint">
+    要讓按鈕真的有人接手，agent 那邊要先跑：
+    <code>python overlay/console/agent.py wait</code>
+  </div>
+
+  <div class="queue" id="queue"></div>
+</aside>
+
+<main class="main">
+  <header class="head">
+    <h1>在瀏覽器裡做完整份簡報</h1>
+    <p>填一次要做什麼，接下來挑版面、選動畫、重做某一頁都在畫面上按，不用回對話框打字。</p>
+  </header>
+
+  <section class="card">
+    <h2><span class="num">1</span>開一份新簡報</h2>
+    <form id="new-deck" autocomplete="off">
+      <label>要做什麼簡報
+        <textarea name="topic" rows="2" placeholder="例：把 Q3 業績檢討做成給主管看的季度報告"></textarea>
+      </label>
+
+      <div class="row">
+        <label>給誰看
+          <input name="audience" placeholder="例：業務部主管與各區負責人">
+        </label>
+        <label>大概幾頁
+          <input name="pages" placeholder="例：10-12">
+        </label>
+        <label>語言
+          <select name="language">
+            <option value="zh-TW">繁體中文</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+      </div>
+
+      <label>材料（選填，可以多檔）
+        <div class="drop" id="drop">
+          <input type="file" name="materials" id="materials" multiple hidden>
+          <div class="drop-inner">
+            <strong>把檔案拖進來</strong>
+            <span>或<button type="button" class="link" id="browse">選擇檔案</button>　PDF、Word、Markdown、純文字都可以</span>
+          </div>
+          <ul class="filelist" id="filelist"></ul>
+        </div>
+      </label>
+
+      <label>還有什麼要交代的（選填）
+        <textarea name="notes" rows="2" placeholder="例：第 3 頁用 SWOT，語氣正式一點"></textarea>
+      </label>
+
+      <div class="actions">
+        <button type="submit" class="primary" id="submit">開始製作</button>
+        <span class="feedback" id="feedback"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">2</span>你的簡報</h2>
+    <div id="projects" class="projects"><p class="empty">讀取中…</p></div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
