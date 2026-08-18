@@ -33,6 +33,65 @@ AI agent 的進入點。使用者在這個資料夾裡要求做簡報時，先�
 | 「重畫這一頁」「換頁型」 | `python overlay/regen/regen_page.py projects/<專案> --show` 取得目標頁、契約與骨架 → **只重寫那一支 SVG** → `--request` 跑快路徑 |
 | 「第 N 頁用 SWOT／KPI／流程圖／對比」 | 讀 `overlay/pagetypes/<id>/contract.md` 與 `skeleton.svg`，依契約重畫 |
 | 想要動畫 | 確認頁的套組選擇會自動在匯出時展開，**不必手動跑 `apply_preset.py`** |
+| 要產生 `spec_lock.md` | 跑 `python overlay/scaffold/spec_lock.py <專案>`，**不要用引擎的 `scaffold-lock`**——理由見下方 |
+
+## 產生 spec_lock.md 用覆蓋層那支
+
+```bash
+python overlay/scaffold/spec_lock.py projects/<專案>
+```
+
+引擎的 `project_manager.py scaffold-lock` 給的是引擎通用的最小集合：`typography`
+只有 `body` 與 `title`、`colors` 只有四個鍵。那對上游沒錯，它不知道 shiftdeck 加了
+頁型庫；但頁型骨架實際用到**五個字級（54/40/24/18/14）與八個色角色**，照引擎的
+scaffold 填完必定撞上：
+
+```
+undeclared font-size 24 (8 occurrences) exceeds the sparse-display limit of 2
+```
+
+2026-08-15 的四個獨立頁型測試全部踩到這一個坑。覆蓋層那支會先讓引擎產生基底
+（schema 跟著上游走），再掃 `overlay/pagetypes/*/skeleton.svg` 把真正需要的字級與
+色角色補上，並依 `svg_output/` 的實際檔案列出 `page_rhythm`。新增頁型時它自動跟上，
+不必回頭改腳本。
+
+**寫 `## colors` 時不要加行內註解**：引擎的 `load_theme_color_spec` 會把 `:` 後面
+整段丟給 `parse_hex_color`，一個註解就讓那行被靜默跳過；全部跳過的話品質閘門會回
+報 `theme contract is missing: colors`。
+| 「值班」「我要在瀏覽器上操作」「開主控台」 | 見下方〈主控台值班模式〉：跑 `agent.py wait` 等瀏覽器送來的請求，不要叫使用者回對話框打字 |
+
+## 主控台值班模式
+
+`overlay/console/` 讓使用者不必回對話框打字：瀏覽器按鈕寫一筆請求進收件匣，
+你用 `agent.py wait` 等到它。使用者說要在瀏覽器操作時，走這個迴圈：
+
+```bash
+python overlay/console/server.py              # 一次就好，開著不用關
+python overlay/console/agent.py wait          # 你這一輪就停在這裡等
+```
+
+`wait` 回來後你會拿到一筆 JSON（已自動 claim）。依 `kind` 處理：
+
+| kind | 你要做的事 |
+|---|---|
+| `new_deck` | 用 payload 的主題／受眾／頁數／材料走完整 generate 流程；材料在 `.shiftdeck/materials/<id>/`，複製進專案 `sources/`，不要動原檔 |
+| `regen_page` | 等同「重畫這一頁」，走 `regen_page.py --show` → 重寫該支 SVG → `--request` |
+| `apply_edits` | 套用預覽編輯器裡待處理的修改 |
+| `export` | 跑 finalize → 品質閘門 → `svg_to_pptx.py` |
+
+**處理途中要回報**，否則使用者只看得到轉圈：
+
+```bash
+python overlay/console/agent.py status "正在重畫第 3 頁" --progress 0.4
+python overlay/console/agent.py done <request-id> --note "已換成對比頁"
+```
+
+處理完**立刻再跑一次 `wait`**，讓使用者可以連續操作。
+
+**誠實的邊界**：`wait` 會佔住你這一輪，且有 timeout。時間到之後在使用者再次
+說話之前，請求只會排在收件匣裡沒人處理——主控台會顯示「等待 agent 接手」而
+不是假裝在跑。這是回合制工具的限制，不要假裝繞得過去。每一輪對話開頭可以用
+`agent.py peek` 順手查有沒有積壓的請求。
 
 **單頁重生成的重點是「只重寫那一支 SVG」**——其他頁的檔案一個 byte 都不要動。
 匯出仍是全量的（引擎的釋出閘門要求整份有一份通過的品質報告），這是刻意的，不要繞過。

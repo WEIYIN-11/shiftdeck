@@ -1,0 +1,42 @@
+diff --git a/skills/ppt-master/scripts/svg_to_pptx/drawingml/elements.py b/skills/ppt-master/scripts/svg_to_pptx/drawingml/elements.py
+index 887c531..3189832 100644
+--- a/skills/ppt-master/scripts/svg_to_pptx/drawingml/elements.py
++++ b/skills/ppt-master/scripts/svg_to_pptx/drawingml/elements.py
+@@ -2260,6 +2260,29 @@ def _paragraph_pr_xml(
+     return f'<a:pPr {attrs}>{body_xml}{_build_bullet_xml(bullet, ctx)}</a:pPr>'
+ 
+ 
++# shiftdeck: 多段落框刻意不加單行框那 6% 餘裕，因為 headroom 是無差別套用到每個
++# run 的，連 CJK 也會被撐寬，於是合併後的文字框比作者的原始行寬還大（理由見
++# _estimate_text_runs_width 的說明）。這個取捨本身是對的，但它留下一個缺口：
++# 實測（微軟正黑體 + LibreOffice）CJK 的估算是準的，含數字或拉丁的行卻低估約 3%。
++# 多段落框的寬度取自「區塊內最寬的那一行」，所以只要最寬那行剛好含數字或英文，
++# 就是 0% 餘裕碰上 3% 低估——必定被折行，而幾何檢查完全不會報。
++# 這裡只補非 CJK 那部分的落差，純中文行的寬度一個 px 都不動。
++_PARAGRAPH_LATIN_SHORTFALL = 0.04
++
++
++def _paragraph_latin_shortfall(runs: list[dict[str, Any]]) -> float:
++    """中西混排的行整行補一個小餘裕（px）；純 CJK 行回傳 0。
++
++    落差不是出在拉丁字元本身的寬度——實測那部分甚至偏高估。真正的來源是
++    LibreOffice 會在每個中西文交界插入額外間距，整行因此比估算寬約 3%。
++    所以補償要按整行算，只對「含非 CJK 字元」的行生效。
++    """
++    text = ''.join(str(run.get('text') or '') for run in runs)
++    if not text or all(is_cjk_char(ch) for ch in text):
++        return 0.0
++    return _estimate_text_runs_width(runs, include_headroom=False) * _PARAGRAPH_LATIN_SHORTFALL
++
++
+ def _estimate_bullet_line_width(
+     runs: list[dict[str, Any]],
+     default_fonts: dict[str, str],
+@@ -2268,6 +2291,7 @@ def _estimate_bullet_line_width(
+     line_runs, bullet = _extract_text_bullet(runs)
+     line_runs = _coalesce_text_runs(line_runs, default_fonts, ctx)
+     width = _estimate_text_runs_width(line_runs, include_headroom=False)
++    width += _paragraph_latin_shortfall(line_runs)
+     if bullet:
+         fs_px = float(line_runs[0].get('font_size', 16)) if line_runs else 16.0
+         width += _bullet_margin_px(bullet, fs_px)
